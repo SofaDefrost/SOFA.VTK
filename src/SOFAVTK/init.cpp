@@ -4,6 +4,10 @@
 namespace sofavtk
 {
 
+extern void registerVTKLoader(sofa::core::ObjectFactory* factory);
+
+
+
 void initializePlugin() 
 {
     static bool first = true;
@@ -40,5 +44,10 @@ extern "C"
     SOFAVTK_API const char* getModuleDescription() 
     {
         return "SOFA plugin using VTK to read meshes";
+    }
+
+    SOFAVTK_API void registerObjects(sofa::core::ObjectFactory* factory)
+    {
+        sofavtk::registerVTKLoader(factory);
     }
 }

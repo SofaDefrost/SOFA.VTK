@@ -4,17 +4,24 @@ project(SOFAVTK VERSION 1.0 LANGUAGES CXX)
 
 find_package(Sofa.Core REQUIRED)
 
+#sofa_find_package(VTK COMPONENTS CommonCore CommonDataModel IOXML REQUIRED)
+
 set(HEADER_FILES
     src/SOFAVTK/config.h.in
     src/SOFAVTK/init.h
+
+    src/SOFAVTK/VTKLoader.h
 )
 
 set(SOURCE_FILES
     src/SOFAVTK/init.cpp
+
+    src/SOFAVTK/VTKLoader.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME} PUBLIC Sofa.Core)
+#target_link_libraries(${PROJECT_NAME} PRIVATE VTK::CommonCore VTK::CommonDataModel VTK::IOXML)
 
 sofa_create_package_with_targets(
     PACKAGE_NAME ${PROJECT_NAME}
