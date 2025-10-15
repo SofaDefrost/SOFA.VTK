@@ -1,18 +1,17 @@
 #pragma once
-#include <SOFAVTK/config.h>
-#include <sofa/core/loader/MeshLoader.h>
+#include <SOFAVTK/BaseVTKLoader.h>
 
 namespace sofavtk
 {
 
-struct SOFAVTK_API PolyDataVTKLoader : sofa::core::loader::MeshLoader
+struct SOFAVTK_API PolyDataVTKLoader : BaseVTKLoader
 {
-    SOFA_CLASS(PolyDataVTKLoader, sofa::core::loader::MeshLoader);
+    SOFA_CLASS(PolyDataVTKLoader, BaseVTKLoader);
 
-private:
+protected:
 
-    bool doLoad() override;
-    void doClearBuffers() override;
+    vtkSmartPointer<vtkDataSet> getDataSet(
+        const sofa::core::objectmodel::DataFileName& fileName) override;
 };
 
 }

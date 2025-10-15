@@ -1,8 +1,6 @@
 #include <SOFAVTK/PolyDataVTKLoader.h>
 #include <sofa/core/ObjectFactory.h>
 
-#include <vtkSmartPointer.h>
-
 #include <vtkBYUReader.h>
 #include <vtkOBJReader.h>
 #include <vtkPLYReader.h>
@@ -10,23 +8,17 @@
 #include <vtkSTLReader.h>
 #include <vtkXMLPolyDataReader.h>
 
-#include <SOFAVTK/VTKtoSOFA.h>
-
 namespace
 {
 
 template<class Reader>
-vtkSmartPointer<vtkPolyData> getPolyData(std::string fileName)
+vtkSmartPointer<vtkPolyData> getPolyData(const sofa::core::objectmodel::DataFileName& fileName)
 {
     vtkNew<Reader> reader;
-    reader->SetFileName(fileName.c_str());
+    reader->SetFileName(fileName.getFullPath().c_str());
     reader->Update();
     return reader->GetOutput();
 }
-
-void extractFromPolyData(
-    sofavtk::PolyDataVTKLoader& loader,
-    vtkSmartPointer<vtkPolyData> polyData);
 
 }
 
@@ -39,70 +31,31 @@ void registerPolyDataVTKLoader(sofa::core::ObjectFactory* factory)
         .add< PolyDataVTKLoader >());
 }
 
-bool PolyDataVTKLoader::doLoad()
+vtkSmartPointer<vtkDataSet> PolyDataVTKLoader::getDataSet(
+    const sofa::core::objectmodel::DataFileName& fileName)
 {
-    const auto& fileName = d_filename.getFullPath();
-    msg_info() << "Loading VTK file: " << fileName ;
+    const std::string extension = sofa::helper::downcaseString(fileName.getExtension());
 
-    vtkSmartPointer<vtkPolyData> polyData;
-    const std::string extension = sofa::helper::downcaseString(d_filename.getExtension());
+    static const std::unordered_map<std::string, std::function<vtkSmartPointer<vtkPolyData>()>> readers {
+        {"ply", [&fileName](){return getPolyData<vtkPLYReader>(fileName);}},
+        {"vtp", [&fileName](){return getPolyData<vtkXMLPolyDataReader>(fileName);}},
+        {"obj", [&fileName](){return getPolyData<vtkOBJReader>(fileName);}},
+        {"stl", [&fileName](){return getPolyData<vtkSTLReader>(fileName);}},
+        {"vtk", [&fileName](){return getPolyData<vtkPolyDataReader>(fileName);}},
+        {"g", [&fileName](){return getPolyData<vtkBYUReader>(fileName);}}
+    };
 
-    if (extension == "ply")
+    if (auto it = readers.find(extension); it != readers.end())
     {
-        polyData = getPolyData<vtkPLYReader>(fileName);
-    }
-    else if (extension == "vtp")
-    {
-        polyData = getPolyData<vtkXMLPolyDataReader>(fileName);
-    }
-    else if (extension == "obj")
-    {
-        polyData = getPolyData<vtkOBJReader>(fileName);
-    }
-    else if (extension == "stl")
-    {
-        polyData = getPolyData<vtkSTLReader>(fileName);
-    }
-    else if (extension == "vtk")
-    {
-        polyData = getPolyData<vtkPolyDataReader>(fileName);
-    }
-    else if (extension == "g")
-    {
-        polyData = getPolyData<vtkBYUReader>(fileName);
-    }
-    else
-    {
-        msg_error() << "Unsupported file extension: " << extension << " for file: " << fileName << ". Supported extensions: ..." ;
-        return false;
+        return it->second();
     }
 
-    if (polyData != nullptr)
-    {
-        extractFromPolyData(*this, polyData);
-        return true;
-    }
+    const auto supportedExtensions =
+        sofa::helper::join(readers.begin(), readers.end(), [](auto& pair){return pair.first;}, ',');
 
-    return false;
+    msg_error() << "Unsupported file extension: " << extension << " for file: " << fileName
+                << ". Supported extensions: " << supportedExtensions;
+    return nullptr;
 }
-
-void PolyDataVTKLoader::doClearBuffers() {}
 
 }  // namespace sofavtk
-
-namespace
-{
-
-void extractFromPolyData(
-    sofavtk::PolyDataVTKLoader& loader,
-    vtkSmartPointer<vtkPolyData> polyData)
-{
-    {
-        auto positions = sofa::helper::getWriteOnlyAccessor(loader.d_positions);
-        sofavtk::extractPoints(positions.wref(), polyData);
-    }
-
-    sofavtk::extractCells(loader, polyData);
-}
-
-}

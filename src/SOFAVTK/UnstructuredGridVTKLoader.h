@@ -1,18 +1,18 @@
 #pragma once
-#include <SOFAVTK/config.h>
-#include <sofa/core/loader/MeshLoader.h>
+#include <SOFAVTK/BaseVTKLoader.h>
 
 namespace sofavtk
 {
 
-struct SOFAVTK_API UnstructuredGridVTKLoader : sofa::core::loader::MeshLoader
+struct SOFAVTK_API UnstructuredGridVTKLoader : BaseVTKLoader
 {
-    SOFA_CLASS(UnstructuredGridVTKLoader, sofa::core::loader::MeshLoader);
+    SOFA_CLASS(UnstructuredGridVTKLoader, BaseVTKLoader);
 
-private:
+protected:
 
-    bool doLoad() override;
-    void doClearBuffers() override;
+    vtkSmartPointer<vtkDataSet> getDataSet(
+        const sofa::core::objectmodel::DataFileName& fileName) override;
+
 };
 
 }

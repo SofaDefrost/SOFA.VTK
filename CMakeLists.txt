@@ -17,6 +17,7 @@ set(HEADER_FILES
     src/SOFAVTK/config.h.in
     src/SOFAVTK/init.h
 
+    src/SOFAVTK/BaseVTKLoader.h
     src/SOFAVTK/PolyDataVTKLoader.h
     src/SOFAVTK/UnstructuredGridVTKLoader.h
 
@@ -27,6 +28,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
     src/SOFAVTK/init.cpp
 
+    src/SOFAVTK/BaseVTKLoader.cpp
     src/SOFAVTK/PolyDataVTKLoader.cpp
     src/SOFAVTK/UnstructuredGridVTKLoader.cpp
 
