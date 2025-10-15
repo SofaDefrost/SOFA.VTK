@@ -4,9 +4,7 @@
 namespace sofavtk
 {
 
-extern void registerVTKLoader(sofa::core::ObjectFactory* factory);
-
-
+extern void registerUnstructuredGridVTKLoader(sofa::core::ObjectFactory* factory);
 
 void initializePlugin() 
 {
@@ -48,6 +46,6 @@ extern "C"
 
     SOFAVTK_API void registerObjects(sofa::core::ObjectFactory* factory)
     {
-        sofavtk::registerVTKLoader(factory);
+        sofavtk::registerUnstructuredGridVTKLoader(factory);
     }
 }

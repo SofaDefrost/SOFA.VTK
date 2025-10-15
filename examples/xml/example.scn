@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Node name="root" dt="0.005" gravity="0 0 -9.81">
-    <Node name="plugins">
-        <RequiredPlugin name="SOFAVTK"/>
-    </Node>
-</Node>
