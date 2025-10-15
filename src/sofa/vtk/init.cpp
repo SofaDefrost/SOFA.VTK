@@ -1,4 +1,4 @@
-#include <SOFAVTK/init.h>
+#include <sofa/vtk/init.h>
 #include <sofa/core/ObjectFactory.h>
 
 namespace sofavtk
@@ -20,32 +20,32 @@ void initializePlugin()
 
 extern "C" 
 {
-    SOFAVTK_API void initExternalModule() 
+    SOFA_VTK_API void initExternalModule()
     {
         sofavtk::initializePlugin();
     }
 
-    SOFAVTK_API const char* getModuleName() 
+    SOFA_VTK_API const char* getModuleName()
     {
         return sofavtk::MODULE_NAME;
     }
 
-    SOFAVTK_API const char* getModuleVersion() 
+    SOFA_VTK_API const char* getModuleVersion()
     {
         return sofavtk::MODULE_VERSION;
     }
 
-    SOFAVTK_API const char* getModuleLicense() 
+    SOFA_VTK_API const char* getModuleLicense()
     {
         return "LGPL";
     }
 
-    SOFAVTK_API const char* getModuleDescription() 
+    SOFA_VTK_API const char* getModuleDescription()
     {
         return "SOFA plugin using VTK to read meshes";
     }
 
-    SOFAVTK_API void registerObjects(sofa::core::ObjectFactory* factory)
+    SOFA_VTK_API void registerObjects(sofa::core::ObjectFactory* factory)
     {
         sofavtk::registerUnstructuredGridVTKLoader(factory);
         sofavtk::registerPolyDataVTKLoader(factory);

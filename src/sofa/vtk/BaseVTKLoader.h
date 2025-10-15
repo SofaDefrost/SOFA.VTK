@@ -1,5 +1,5 @@
 #pragma once
-#include <SOFAVTK/config.h>
+#include <sofa/vtk/config.h>
 #include <sofa/core/loader/MeshLoader.h>
 #include <vtkDataSet.h>
 #include <vtkSmartPointer.h>
@@ -7,7 +7,7 @@
 namespace sofavtk
 {
 
-struct SOFAVTK_API BaseVTKLoader : sofa::core::loader::MeshLoader
+struct SOFA_VTK_API BaseVTKLoader : sofa::core::loader::MeshLoader
 {
     SOFA_ABSTRACT_CLASS(BaseVTKLoader, sofa::core::loader::MeshLoader);
 

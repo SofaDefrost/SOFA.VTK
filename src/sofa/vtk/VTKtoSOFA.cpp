@@ -1,5 +1,5 @@
-#include <SOFAVTK/CellTypeName.h>
-#include <SOFAVTK/VTKtoSOFA.h>
+#include <sofa/vtk/CellTypeName.h>
+#include <sofa/vtk/VTKtoSOFA.h>
 #include <vtkCell.h>
 #include <vtkCellType.h>
 #include <vtkCellTypes.h>

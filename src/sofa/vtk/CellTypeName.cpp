@@ -1,4 +1,4 @@
-#include <SOFAVTK/CellTypeName.h>
+#include <sofa/vtk/CellTypeName.h>
 
 #include <unordered_map>
 

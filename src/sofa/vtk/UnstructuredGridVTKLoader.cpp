@@ -1,8 +1,8 @@
-#include <SOFAVTK/UnstructuredGridVTKLoader.h>
+#include <sofa/vtk/UnstructuredGridVTKLoader.h>
 #include <sofa/core/ObjectFactory.h>
 
-#include <SOFAVTK/VTKtoSOFA.h>
-#include <SOFAVTK/CellTypeName.h>
+#include <sofa/vtk/VTKtoSOFA.h>
+#include <sofa/vtk/CellTypeName.h>
 
 #include <vtkUnstructuredGrid.h>
 #include <vtkUnstructuredGridReader.h>

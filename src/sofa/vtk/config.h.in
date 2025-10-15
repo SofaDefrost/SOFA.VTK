@@ -1,11 +1,11 @@
 #pragma once
 #include <sofa/config.h>
 
-#ifdef SOFA_BUILD_SOFAVTK
+#ifdef SOFA_BUILD_SOFA_VTK
 #  define SOFA_TARGET @PROJECT_NAME@
-#  define SOFAVTK_API SOFA_EXPORT_DYNAMIC_LIBRARY
+#  define SOFA_VTK_API SOFA_EXPORT_DYNAMIC_LIBRARY
 #else
-#  define SOFAVTK_API SOFA_IMPORT_DYNAMIC_LIBRARY
+#  define SOFA_VTK_API SOFA_IMPORT_DYNAMIC_LIBRARY
 #endif
 
 namespace sofavtk

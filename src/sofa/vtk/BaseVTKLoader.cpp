@@ -1,5 +1,5 @@
-#include <SOFAVTK/BaseVTKLoader.h>
-#include <SOFAVTK/VTKtoSOFA.h>
+#include <sofa/vtk/BaseVTKLoader.h>
+#include <sofa/vtk/VTKtoSOFA.h>
 #include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
 

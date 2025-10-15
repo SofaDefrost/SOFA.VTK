@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Node name="root" dt="0.005" gravity="0 0 -9.81">
     <Node name="plugins">
-        <RequiredPlugin name="SOFAVTK"/>
+        <RequiredPlugin name="SOFA.VTK"/>
     </Node>
 
     <UnstructuredGridVTKLoader name="VtkLoader" filename="mesh/seaMonster2-volume1.vtu" flipNormals="0" printLog="true" createSubelements="true"/>

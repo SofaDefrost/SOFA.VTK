@@ -1,10 +1,10 @@
 #pragma once
-#include <SOFAVTK/BaseVTKLoader.h>
+#include <sofa/vtk/BaseVTKLoader.h>
 
 namespace sofavtk
 {
 
-struct SOFAVTK_API PolyDataVTKLoader : BaseVTKLoader
+struct SOFA_VTK_API PolyDataVTKLoader : BaseVTKLoader
 {
     SOFA_CLASS(PolyDataVTKLoader, BaseVTKLoader);
 

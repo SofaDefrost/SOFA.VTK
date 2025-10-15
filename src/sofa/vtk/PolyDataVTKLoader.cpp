@@ -1,4 +1,4 @@
-#include <SOFAVTK/PolyDataVTKLoader.h>
+#include <sofa/vtk/PolyDataVTKLoader.h>
 #include <sofa/core/ObjectFactory.h>
 
 #include <vtkBYUReader.h>

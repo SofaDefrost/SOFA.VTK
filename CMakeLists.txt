@@ -1,6 +1,5 @@
-# CMakeLists.txt for SOFAVTK plugin
 cmake_minimum_required(VERSION 3.12)
-project(SOFAVTK VERSION 1.0 LANGUAGES CXX)
+project(SOFA.VTK LANGUAGES CXX)
 
 find_package(Sofa.Core REQUIRED)
 
@@ -14,26 +13,26 @@ sofa_find_package(VTK COMPONENTS
 REQUIRED)
 
 set(HEADER_FILES
-    src/SOFAVTK/config.h.in
-    src/SOFAVTK/init.h
+    src/sofa/vtk/config.h.in
+    src/sofa/vtk/init.h
 
-    src/SOFAVTK/BaseVTKLoader.h
-    src/SOFAVTK/PolyDataVTKLoader.h
-    src/SOFAVTK/UnstructuredGridVTKLoader.h
+    src/sofa/vtk/BaseVTKLoader.h
+    src/sofa/vtk/PolyDataVTKLoader.h
+    src/sofa/vtk/UnstructuredGridVTKLoader.h
 
-    src/SOFAVTK/CellTypeName.h
-    src/SOFAVTK/VTKtoSOFA.h
+    src/sofa/vtk/CellTypeName.h
+    src/sofa/vtk/VTKtoSOFA.h
 )
 
 set(SOURCE_FILES
-    src/SOFAVTK/init.cpp
+    src/sofa/vtk/init.cpp
 
-    src/SOFAVTK/BaseVTKLoader.cpp
-    src/SOFAVTK/PolyDataVTKLoader.cpp
-    src/SOFAVTK/UnstructuredGridVTKLoader.cpp
+    src/sofa/vtk/BaseVTKLoader.cpp
+    src/sofa/vtk/PolyDataVTKLoader.cpp
+    src/sofa/vtk/UnstructuredGridVTKLoader.cpp
 
-    src/SOFAVTK/CellTypeName.cpp
-    src/SOFAVTK/VTKtoSOFA.cpp
+    src/sofa/vtk/CellTypeName.cpp
+    src/sofa/vtk/VTKtoSOFA.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES})
@@ -50,15 +49,16 @@ vtk_module_autoinit(
 
 sofa_create_package_with_targets(
     PACKAGE_NAME ${PROJECT_NAME}
-    PACKAGE_VERSION ${PROJECT_VERSION}
+    PACKAGE_VERSION ${Sofa_VERSION}
     TARGETS ${PROJECT_NAME} AUTO_SET_TARGET_PROPERTIES
     INCLUDE_SOURCE_DIR "src"
     INCLUDE_INSTALL_DIR ${PROJECT_NAME}
+    EXAMPLE_INSTALL_DIR "examples"
     RELOCATABLE "plugins"
-    )
-    
-cmake_dependent_option(SOFAVTK_BUILD_TESTS "Compile the automatic tests" ON "SOFA_BUILD_TESTS OR NOT DEFINED SOFA_BUILD_TESTS" OFF)
-if(SOFAVTK_BUILD_TESTS)
+)
+
+cmake_dependent_option(SOFA_VTK_BUILD_TESTS "Compile the automatic tests" ON "SOFA_BUILD_TESTS OR NOT DEFINED SOFA_BUILD_TESTS" OFF)
+if(SOFA_VTK_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
