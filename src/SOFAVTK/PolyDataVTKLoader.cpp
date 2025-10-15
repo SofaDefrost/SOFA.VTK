@@ -7,6 +7,8 @@
 #include <vtkPolyDataReader.h>
 #include <vtkSTLReader.h>
 #include <vtkXMLPolyDataReader.h>
+#include <vtkOFFReader.h>
+#include <vtkPTSReader.h>
 
 namespace
 {
@@ -42,7 +44,9 @@ vtkSmartPointer<vtkDataSet> PolyDataVTKLoader::getDataSet(
         {"obj", [&fileName](){return getPolyData<vtkOBJReader>(fileName);}},
         {"stl", [&fileName](){return getPolyData<vtkSTLReader>(fileName);}},
         {"vtk", [&fileName](){return getPolyData<vtkPolyDataReader>(fileName);}},
-        {"g", [&fileName](){return getPolyData<vtkBYUReader>(fileName);}}
+        {"g", [&fileName](){return getPolyData<vtkBYUReader>(fileName);}},
+        {"off", [&fileName](){return getPolyData<vtkOFFReader>(fileName);}},
+        {"pts", [&fileName](){return getPolyData<vtkPTSReader>(fileName);}}
     };
 
     if (auto it = readers.find(extension); it != readers.end())
