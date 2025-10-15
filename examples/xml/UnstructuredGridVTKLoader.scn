@@ -4,6 +4,6 @@
         <RequiredPlugin name="SOFAVTK"/>
     </Node>
 
-    <UnstructuredGridVTKLoader name="VtkLoader" filename="mesh/seaMonster2-volume1.vtu" flipNormals="0" printLog="true"/>
-    <OglModel name="VisualModel" src="@VtkLoader" color="red" texturename="textures/liver-texture-square.png" />
+    <UnstructuredGridVTKLoader name="VtkLoader" filename="mesh/seaMonster2-volume1.vtu" flipNormals="0" printLog="true" createSubelements="true"/>
+    <OglModel name="VisualModel" src="@VtkLoader" color="red"/>
 </Node>
