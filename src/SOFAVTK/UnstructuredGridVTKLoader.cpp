@@ -22,23 +22,16 @@ bool UnstructuredGridVTKLoader::doLoad()
     msg_info() << "Loading VTK file: " << fileName ;
 
     vtkSmartPointer<vtkUnstructuredGrid> unstructuredGrid;
-    std::string extension;
-    if (fileName.find_last_of(".") != std::string::npos)
-    {
-        extension = fileName.substr(fileName.find_last_of("."));
-    }
+    const std::string extension = sofa::helper::downcaseString(d_filename.getExtension());
 
-    // Drop the case of the extension
-    extension = sofa::helper::downcaseString(extension);
-
-    if (extension == ".vtu")
+    if (extension == "vtu")
     {
         vtkNew<vtkXMLUnstructuredGridReader> reader;
         reader->SetFileName(fileName.c_str());
         reader->Update();
         unstructuredGrid = reader->GetOutput();
     }
-    else if (extension == ".vtk")
+    else if (extension == "vtk")
     {
         vtkNew<vtkUnstructuredGridReader> reader;
         reader->SetFileName(fileName.c_str());
