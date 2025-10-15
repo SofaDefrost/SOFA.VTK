@@ -11,6 +11,15 @@ namespace
 void extractFromUnstructuredGrid(
     sofavtk::UnstructuredGridVTKLoader& loader,
     vtkSmartPointer<vtkUnstructuredGrid> unstructuredGrid);
+
+template<class Reader>
+vtkSmartPointer<vtkUnstructuredGrid> getUnstructuredGrid(std::string fileName)
+{
+    vtkNew<Reader> reader;
+    reader->SetFileName(fileName.c_str());
+    reader->Update();
+    return reader->GetOutput();
+}
 }
 
 namespace sofavtk
@@ -32,17 +41,11 @@ bool UnstructuredGridVTKLoader::doLoad()
 
     if (extension == "vtu")
     {
-        vtkNew<vtkXMLUnstructuredGridReader> reader;
-        reader->SetFileName(fileName.c_str());
-        reader->Update();
-        unstructuredGrid = reader->GetOutput();
+        getUnstructuredGrid<vtkXMLUnstructuredGridReader>(fileName.c_str());
     }
     else if (extension == "vtk")
     {
-        vtkNew<vtkUnstructuredGridReader> reader;
-        reader->SetFileName(fileName.c_str());
-        reader->Update();
-        unstructuredGrid = reader->GetOutput();
+        getUnstructuredGrid<vtkUnstructuredGridReader>(fileName.c_str());
     }
     else
     {
@@ -50,9 +53,13 @@ bool UnstructuredGridVTKLoader::doLoad()
         return false;
     }
 
-    extractFromUnstructuredGrid(*this, unstructuredGrid);
+    if (unstructuredGrid != nullptr)
+    {
+        extractFromUnstructuredGrid(*this, unstructuredGrid);
+        return true;
+    }
 
-    return true;
+    return false;
 }
 
 void UnstructuredGridVTKLoader::doClearBuffers()
@@ -85,16 +92,14 @@ struct CellData : BaseCellData
         const auto nbElements = cells->GetDataSize();
         accessor.resize(nbElements);
 
-        const auto nbNodesPerElement = unstructuredGrid->GetCell(cells->GetValue(0))->GetNumberOfPoints();
-
-        for (vtkIdType j = 0; j < nbElements; ++j)
+        for (vtkIdType i = 0; i < nbElements; ++i)
         {
-            vtkIdType cell_id = cells->GetValue(j);
+            vtkIdType cell_id = cells->GetValue(i);
             vtkCell* cell = unstructuredGrid->GetCell(cell_id);
 
-            for (int k = 0; k < cell->GetNumberOfPoints(); ++k)
+            for (int j = 0; j < cell->GetNumberOfPoints(); ++j)
             {
-                accessor[j][k] = static_cast<sofa::Index>(cell->GetPointId(k));
+                accessor[i][j] = static_cast<sofa::Index>(cell->GetPointId(j));
             }
         }
     }
