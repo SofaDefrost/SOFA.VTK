@@ -20,6 +20,7 @@ set(HEADER_FILES
     src/SOFAVTK/PolyDataVTKLoader.h
     src/SOFAVTK/UnstructuredGridVTKLoader.h
 
+    src/SOFAVTK/CellTypeName.h
     src/SOFAVTK/VTKtoSOFA.h
 )
 
@@ -29,6 +30,7 @@ set(SOURCE_FILES
     src/SOFAVTK/PolyDataVTKLoader.cpp
     src/SOFAVTK/UnstructuredGridVTKLoader.cpp
 
+    src/SOFAVTK/CellTypeName.cpp
     src/SOFAVTK/VTKtoSOFA.cpp
 )
 

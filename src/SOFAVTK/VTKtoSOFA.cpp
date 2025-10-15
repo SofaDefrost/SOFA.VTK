@@ -1,6 +1,73 @@
+#include <SOFAVTK/CellTypeName.h>
 #include <SOFAVTK/VTKtoSOFA.h>
-
+#include <vtkCell.h>
+#include <vtkCellType.h>
+#include <vtkCellTypes.h>
 #include <vtkPoints.h>
+
+namespace sofavtk
+{
+
+struct BaseCellData
+{
+    virtual void fill(vtkSmartPointer<vtkDataSet> dataSet) = 0;
+};
+
+template<VTKCellType cellType, class T>
+struct CellData : BaseCellData
+{
+    explicit CellData(sofa::Data<T>* data) : m_data(data) {}
+
+    void fill(vtkSmartPointer<vtkDataSet> dataSet) override
+    {
+        auto accessor = sofa::helper::getWriteOnlyAccessor(*m_data);
+
+        const auto nbCells = dataSet->GetNumberOfCells();
+        for (vtkIdType i = 0; i < nbCells; ++i)
+        {
+            vtkCell* cell = dataSet->GetCell(i);
+            if (cell->GetCellType() == cellType)
+            {
+                auto& element = accessor.emplace_back();
+                for (int j = 0; j < cell->GetNumberOfPoints(); ++j)
+                {
+                    element[j] = static_cast<sofa::Index>(cell->GetPointId(j));
+                }
+            }
+        }
+    }
+private:
+    sofa::Data<T>* m_data;
+};
+
+template<VTKCellType cellType, class Container>
+void registerInMap(std::unordered_map<VTKCellType, std::unique_ptr<BaseCellData>>& map, Container* container)
+{
+    using ContainerT = std::remove_reference_t<decltype(*container)>;
+    map.emplace(cellType, std::make_unique<CellData<cellType, typename ContainerT::value_type>>(container));
+}
+
+std::unordered_map<VTKCellType, std::unique_ptr<BaseCellData>> makeCellDataMap(sofa::core::loader::MeshLoader& loader)
+{
+    std::unordered_map<VTKCellType, std::unique_ptr<BaseCellData>> dataMap;
+
+    registerInMap<VTK_POLY_LINE>(dataMap, &loader.d_polylines);
+
+    registerInMap<VTK_LINE>(dataMap, &loader.d_edges);
+    registerInMap<VTK_TRIANGLE>(dataMap, &loader.d_triangles);
+    registerInMap<VTK_QUAD>(dataMap, &loader.d_quads);
+    registerInMap<VTK_POLYGON>(dataMap, &loader.d_polygons);
+
+    registerInMap<VTK_TETRA>(dataMap, &loader.d_tetrahedra);
+    registerInMap<VTK_HEXAHEDRON>(dataMap, &loader.d_hexahedra);
+    registerInMap<VTK_WEDGE>(dataMap, &loader.d_pentahedra);
+    registerInMap<VTK_PYRAMID>(dataMap, &loader.d_pyramids);
+
+    return dataMap;
+}
+
+}
+
 
 namespace sofavtk
 {
@@ -28,4 +95,26 @@ void extractPoints(
     }
 }
 
+void extractCells(sofa::core::loader::MeshLoader& loader, vtkSmartPointer<vtkDataSet> dataSet)
+{
+    auto dataMap = makeCellDataMap(loader);
+
+    vtkSmartPointer <vtkCellTypes> types = vtkSmartPointer <vtkCellTypes>::New();
+    dataSet->GetCellTypes(types);
+    const vtkIdType nbElementTypes = types->GetNumberOfTypes();
+    for (vtkIdType i = 0; i < nbElementTypes; ++i)
+    {
+        const auto type = types->GetCellType(i);
+        if (auto it = dataMap.find(static_cast<VTKCellType>(type)); it != dataMap.end())
+        {
+            it->second->fill(dataSet);
+        }
+        else
+        {
+            msg_error(&loader) << "Unsupported cell type: "
+                << sofavtk::getCellTypeName(static_cast<VTKCellType>(type)) << " (" << static_cast<VTKCellType>(type) << ")";
+        }
+    }
 }
+
+}  // namespace sofavtk

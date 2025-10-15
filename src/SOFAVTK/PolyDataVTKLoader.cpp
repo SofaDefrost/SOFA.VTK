@@ -97,8 +97,12 @@ void extractFromPolyData(
     sofavtk::PolyDataVTKLoader& loader,
     vtkSmartPointer<vtkPolyData> polyData)
 {
-    auto positions = sofa::helper::getWriteOnlyAccessor(loader.d_positions);
-    sofavtk::extractPoints(positions.wref(), polyData);
+    {
+        auto positions = sofa::helper::getWriteOnlyAccessor(loader.d_positions);
+        sofavtk::extractPoints(positions.wref(), polyData);
+    }
+
+    sofavtk::extractCells(loader, polyData);
 }
 
 }
