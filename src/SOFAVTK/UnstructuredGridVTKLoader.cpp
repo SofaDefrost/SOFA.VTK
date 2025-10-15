@@ -1,6 +1,8 @@
 #include <SOFAVTK/UnstructuredGridVTKLoader.h>
 #include <sofa/core/ObjectFactory.h>
 
+#include <SOFAVTK/VTKtoSOFA.h>
+
 #include <vtkSmartPointer.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkUnstructuredGridReader.h>
@@ -217,22 +219,8 @@ void extractFromUnstructuredGrid(
     sofavtk::UnstructuredGridVTKLoader& loader,
     vtkSmartPointer<vtkUnstructuredGrid> unstructuredGrid)
 {
-    static constexpr sofa::Index dimension = 3;
-
-    auto* points = unstructuredGrid->GetPoints();
-    const auto nbPoints = points->GetNumberOfPoints();
-
     auto positions = sofa::helper::getWriteOnlyAccessor(loader.d_positions);
-    positions.resize(nbPoints);
-
-    for (vtkIdType i = 0; i < nbPoints; ++i)
-    {
-        double* point = points->GetPoint(i);
-        for (sofa::Index j = 0; j < dimension; ++j)
-        {
-            positions[i][j] = point[j];
-        }
-    }
+    sofavtk::extractPoints(positions.wref(), unstructuredGrid);
 
     auto dataMap = makeCellDataMap(loader);
 

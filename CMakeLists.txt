@@ -4,7 +4,14 @@ project(SOFAVTK VERSION 1.0 LANGUAGES CXX)
 
 find_package(Sofa.Core REQUIRED)
 
-sofa_find_package(VTK COMPONENTS CommonCore CommonDataModel IOXML IOLegacy REQUIRED)
+sofa_find_package(VTK COMPONENTS
+    CommonCore
+    CommonDataModel
+    IOGeometry
+    IOLegacy
+    IOPLY
+    IOXML
+REQUIRED)
 
 set(HEADER_FILES
     src/SOFAVTK/config.h.in
@@ -12,6 +19,8 @@ set(HEADER_FILES
 
     src/SOFAVTK/PolyDataVTKLoader.h
     src/SOFAVTK/UnstructuredGridVTKLoader.h
+
+    src/SOFAVTK/VTKtoSOFA.h
 )
 
 set(SOURCE_FILES
@@ -19,6 +28,8 @@ set(SOURCE_FILES
 
     src/SOFAVTK/PolyDataVTKLoader.cpp
     src/SOFAVTK/UnstructuredGridVTKLoader.cpp
+
+    src/SOFAVTK/VTKtoSOFA.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES})
