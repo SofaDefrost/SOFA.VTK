@@ -1,9 +1,6 @@
 #include <sofa/vtk/UnstructuredGridVTKLoader.h>
 #include <sofa/core/ObjectFactory.h>
 
-#include <sofa/vtk/VTKtoSOFA.h>
-#include <sofa/vtk/CellTypeName.h>
-
 #include <vtkUnstructuredGrid.h>
 #include <vtkUnstructuredGridReader.h>
 #include <vtkXMLUnstructuredGridReader.h>

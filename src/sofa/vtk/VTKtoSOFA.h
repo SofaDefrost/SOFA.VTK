@@ -17,4 +17,9 @@ void SOFA_VTK_API extractCells(
     vtkSmartPointer<vtkDataSet> dataSet
 );
 
+void SOFA_VTK_API listDataArrays(vtkSmartPointer<vtkDataSet> dataSet);
+
+void SOFA_VTK_API loadVTKCellData_3D(vtkSmartPointer<vtkDataSet> dataSet, const char* cellDataName,
+                                     sofa::type::vector<sofa::type::Vec3>& data);
+
 }

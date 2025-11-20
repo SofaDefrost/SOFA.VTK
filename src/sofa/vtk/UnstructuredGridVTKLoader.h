@@ -12,7 +12,6 @@ protected:
 
     vtkSmartPointer<vtkDataSet> getDataSet(
         const sofa::core::objectmodel::DataFileName& fileName) override;
-
 };
 
 }
