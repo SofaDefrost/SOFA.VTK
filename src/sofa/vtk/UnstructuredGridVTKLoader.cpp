@@ -36,7 +36,7 @@ vtkSmartPointer<vtkDataSet> UnstructuredGridVTKLoader::getDataSet(
 {
     const std::string extension = sofa::helper::downcaseString(fileName.getExtension());
 
-    static const std::unordered_map<std::string, std::function<vtkSmartPointer<vtkUnstructuredGrid>()>> readers {
+    const std::unordered_map<std::string, std::function<vtkSmartPointer<vtkUnstructuredGrid>()>> readers {
         {"vtu", [&fileName](){return getUnstructuredGrid<vtkXMLUnstructuredGridReader>(fileName);}},
         {"vtk", [&fileName](){return getUnstructuredGrid<vtkUnstructuredGridReader>(fileName);}}
     };
