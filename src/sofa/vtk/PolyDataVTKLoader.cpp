@@ -38,7 +38,7 @@ vtkSmartPointer<vtkDataSet> PolyDataVTKLoader::getDataSet(
 {
     const std::string extension = sofa::helper::downcaseString(fileName.getExtension());
 
-    static const std::unordered_map<std::string, std::function<vtkSmartPointer<vtkPolyData>()>> readers {
+    const std::unordered_map<std::string, std::function<vtkSmartPointer<vtkPolyData>()>> readers {
         {"ply", [&fileName](){return getPolyData<vtkPLYReader>(fileName);}},
         {"vtp", [&fileName](){return getPolyData<vtkXMLPolyDataReader>(fileName);}},
         {"obj", [&fileName](){return getPolyData<vtkOBJReader>(fileName);}},
