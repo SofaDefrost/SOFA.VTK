@@ -21,31 +21,9 @@ vtkSmartPointer<vtkDataSet> getDataSet(std::string fileName)
 namespace sofavtk
 {
 
-sofa::core::objectmodel::Data<BaseVTKLoader::Vec3Vector>* BaseVTKLoader::getCellVectorData(const std::string& name) const
+void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, 
+                                            const std::string& arrayName)
 {
-    auto it = m_cellVectorData.find(name);
-    if (it != m_cellVectorData.end())
-    {
-        return it->second.get();
-    }
-    return nullptr;
-}
-
-void BaseVTKLoader::loadCellVectorData(vtkSmartPointer<vtkDataSet> dataset)
-{
-    // Clear any previously loaded dynamic data
-    for (auto& [name, dataPtr] : m_cellVectorData)
-    {
-        this->removeData(dataPtr.get());
-    }
-    m_cellVectorData.clear();
-
-    const auto& names = d_cellVectorDataNames.getValue();
-    if (names.empty())
-    {
-        return;
-    }
-
     vtkCellData* cellData = dataset->GetCellData();
     if (!cellData)
     {
@@ -53,39 +31,61 @@ void BaseVTKLoader::loadCellVectorData(vtkSmartPointer<vtkDataSet> dataset)
         return;
     }
 
-    for (const auto& arrayName : names)
+    vtkDataArray* array = cellData->GetArray(arrayName.c_str());
+    if (!array)
     {
-        vtkDataArray* array = cellData->GetArray(arrayName.c_str());
-        if (!array)
-        {
-            msg_warning() << "Cell data array '" << arrayName << "' not found in VTK file";
-            continue;
-        }
-
-        if (array->GetNumberOfComponents() != 3)
-        {
-            msg_warning() << "Cell data array '" << arrayName << "' has "
-                          << array->GetNumberOfComponents() << " components, expected 3 (Vec3)";
-            continue;
-        }
-
-        // Create a new Data object for this array
-        auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<Vec3Vector>>();
-        dataPtr->setName(arrayName);
-        dataPtr->setHelp("Cell vector data loaded from VTK file");
-
-        // Add it to the component so it becomes visible in SOFA
-        this->addData(dataPtr.get(), arrayName);
-
-        // Load the data from VTK
-        auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
-        sofavtk::loadVTKCellData_3D(dataset, arrayName.c_str(), accessor.wref());
-
-        msg_info() << "Loaded cell vector data '" << arrayName << "' with " << accessor->size() << " entries";
-
-        // Store the pointer
-        m_cellVectorData[arrayName] = std::move(dataPtr);
+        msg_warning() << "Cell data array '" << arrayName << "' not found in VTK file";
+        return;
     }
+
+    const int numComponents = array->GetNumberOfComponents();
+
+    // Dispatch based on number of components
+    switch (numComponents)
+    {
+    case 1:
+        loadCellDataArray<SReal, 1>(dataset, arrayName);
+        break;
+    case 2:
+        loadCellDataArray<sofa::type::Vec<2, SReal>, 2>(dataset, arrayName);
+        break;
+    case 3:
+        loadCellDataArray<sofa::type::Vec<3, SReal>, 3>(dataset, arrayName);
+        break;
+    case 4:
+        loadCellDataArray<sofa::type::Vec<4, SReal>, 4>(dataset, arrayName);
+        break;
+    case 6:
+        loadCellDataArray<sofa::type::Vec<6, SReal>, 6>(dataset, arrayName);
+        break;
+    case 9:
+        loadCellDataArray<sofa::type::Vec<9, SReal>, 9>(dataset, arrayName);
+        break;
+    default:
+        msg_warning() << "Cell data array '" << arrayName
+            << "' has unsupported number of components: " << numComponents;
+        break;
+    }
+}
+
+template<typename DataType, int NumComponents>
+void BaseVTKLoader::loadCellDataArray(vtkSmartPointer<vtkDataSet> dataset,
+                                      const std::string& arrayName)
+{
+    // Create a new Data object for this array and add it to Base
+    auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<DataType>>>();
+    dataPtr->setName(arrayName);
+    dataPtr->setHelp("Cell data loaded from VTK file");
+    this->addData(dataPtr.get(), arrayName);
+
+    // Load the data from VTK
+    auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
+    sofavtk::extractCellData<DataType, NumComponents>(dataset, arrayName.c_str(), accessor.wref());
+
+    msg_info() << "Loaded cell data '" << arrayName << "' with " << accessor->size() << " entries";
+
+    // Store the pointer because Base does not manage it
+    m_cellData[arrayName] = std::move(dataPtr);
 }
 
 bool BaseVTKLoader::doLoad()
@@ -97,8 +97,6 @@ bool BaseVTKLoader::doLoad()
 
     if (dataSet != nullptr)
     {
-        //sofavtk::listDataArrays(dataSet);
-
         {
             auto positions = sofa::helper::getWriteOnlyAccessor(this->d_positions);
             sofavtk::extractPoints(positions.wref(), dataSet);
@@ -106,10 +104,8 @@ bool BaseVTKLoader::doLoad()
 
         sofavtk::extractCells(*this, dataSet);
 
-        // Load user-specified cell vector data
-        loadCellVectorData(dataSet);
-
-        loadVTKData(dataSet);
+        for (const auto& arrayName : d_cellDataNames.getValue())
+            loadCellDataArrayByName(dataSet, arrayName);
 
         return true;
     }
@@ -119,17 +115,14 @@ bool BaseVTKLoader::doLoad()
 
 void BaseVTKLoader::doClearBuffers()
 {
-    // Clear dynamically created Data objects
-    for (auto& [name, dataPtr] : m_cellVectorData)
-    {
-        this->removeData(dataPtr.get());
-    }
-    m_cellVectorData.clear();
+    for (auto& pair : m_cellData)
+        this->removeData(pair.second.get());
+
+    m_cellData.clear();
 }
 
 
 }  // namespace sofavtk
-
 
 namespace
 {

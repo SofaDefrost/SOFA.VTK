@@ -4,6 +4,8 @@
 #include <sofa/core/loader/MeshLoader.h>
 #include <vtkDataSet.h>
 #include <vtkSmartPointer.h>
+#include <vtkCellData.h>
+#include <vtkDataArray.h>
 
 namespace sofavtk
 {
@@ -17,9 +19,28 @@ void SOFA_VTK_API extractCells(
     vtkSmartPointer<vtkDataSet> dataSet
 );
 
-void SOFA_VTK_API listDataArrays(vtkSmartPointer<vtkDataSet> dataSet);
+template<typename DataType, int NumComponents>
+void extractCellData(vtkSmartPointer<vtkDataSet> dataSet, const char* arrayName,
+                     sofa::type::vector<DataType>& data)
+{
+    vtkCellData* cellData = dataSet->GetCellData();
+    if (!cellData) return;
 
-void SOFA_VTK_API loadVTKCellData_3D(vtkSmartPointer<vtkDataSet> dataSet, const char* cellDataName,
-                                     sofa::type::vector<sofa::type::Vec3>& data);
+    vtkDataArray* array = cellData->GetArray(arrayName);
+    if (!array) return;
+
+    const auto nbCells = dataSet->GetNumberOfCells();
+    data.resize(nbCells);
+
+    for (vtkIdType cellId = 0; cellId < nbCells; ++cellId)
+    {
+        const double* values = array->GetTuple(cellId);
+
+        if constexpr (NumComponents == 1)
+            data[cellId] = static_cast<DataType>(values[0]);
+        else
+            data[cellId] = DataType(values);
+    }
+}
 
 }

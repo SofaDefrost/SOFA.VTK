@@ -3,6 +3,7 @@
 #include <sofa/core/loader/MeshLoader.h>
 #include <vtkDataSet.h>
 #include <vtkSmartPointer.h>
+#include <cstdint>
 #include <memory>
 #include <map>
 
@@ -13,31 +14,30 @@ struct SOFA_VTK_API BaseVTKLoader : sofa::core::loader::MeshLoader
 {
     SOFA_ABSTRACT_CLASS(BaseVTKLoader, sofa::core::loader::MeshLoader);
 
-    using Vec3Vector = sofa::type::vector<sofa::type::Vec3>;
-
-    /// Names of VTK cell data arrays (3-component vectors) to load
-    sofa::core::objectmodel::Data<sofa::type::vector<std::string>> d_cellVectorDataNames{
-        initData(&d_cellVectorDataNames, "cellVectorDataNames",
-                 "Names of cell data arrays (Vec3) to load from the VTK file")};
-
-    /// Get a loaded cell vector data by its VTK array name. Returns nullptr if not found.
-    sofa::core::objectmodel::Data<Vec3Vector>* getCellVectorData(const std::string& name) const;
+    /// Names of VTK cell data arrays to load
+    sofa::core::objectmodel::Data<sofa::type::vector<std::string>> d_cellDataNames{
+        initData(&d_cellDataNames, "cellDataNames",
+                 "Names of cell data arrays to load from the VTK file")};
 
 private:
 
     bool doLoad() final;
     void doClearBuffers() final;
 
-    void loadCellVectorData(vtkSmartPointer<vtkDataSet> dataset);
+    /// Load a cell data array from VTK dataset
+    template<typename DataType, int NumComponents>
+    void loadCellDataArray(vtkSmartPointer<vtkDataSet> dataset,
+                          const std::string& arrayName);
 
-    /// Storage for dynamically created Data objects
-    std::map<std::string, std::unique_ptr<sofa::core::objectmodel::Data<Vec3Vector>>> m_cellVectorData;
+    /// Dispatch cell data loading based on VTK type and number of components
+    void loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
+
+    /// Unified storage for all dynamically created Data objects
+    std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_cellData;
 
 protected:
 
     virtual vtkSmartPointer<vtkDataSet> getDataSet(const sofa::core::objectmodel::DataFileName& fileName) = 0;
-
-    virtual void loadVTKData(vtkSmartPointer<vtkDataSet> dataset) {}
 };
 
 }

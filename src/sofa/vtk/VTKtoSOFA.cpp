@@ -4,8 +4,6 @@
 #include <vtkCellType.h>
 #include <vtkCellTypes.h>
 #include <vtkPoints.h>
-#include <vtkPointData.h>
-#include <vtkCellData.h>
 
 namespace sofavtk
 {
@@ -101,7 +99,7 @@ void extractCells(sofa::core::loader::MeshLoader& loader, vtkSmartPointer<vtkDat
 {
     auto dataMap = makeCellDataMap(loader);
 
-    vtkSmartPointer <vtkCellTypes> types = vtkSmartPointer <vtkCellTypes>::New();
+    vtkSmartPointer<vtkCellTypes> types = vtkSmartPointer<vtkCellTypes>::New();
     dataSet->GetCellTypes(types);
     const vtkIdType nbElementTypes = types->GetNumberOfTypes();
     for (vtkIdType i = 0; i < nbElementTypes; ++i)
@@ -119,56 +117,7 @@ void extractCells(sofa::core::loader::MeshLoader& loader, vtkSmartPointer<vtkDat
     }
 }
 
-
-void listDataArrays(vtkSmartPointer<vtkDataSet> dataset)
-{
-    if (!dataset) return;
-
-    // --- Point Data ---
-    vtkPointData* pointData = dataset->GetPointData();
-    std::cout << "Point Data Arrays:" << std::endl;
-    for (int i = 0; i < pointData->GetNumberOfArrays(); ++i)
-    {
-        vtkDataArray* array = pointData->GetArray(i);
-        std::cout << "  [" << i << "] " << array->GetName()
-                  << "  components: " << array->GetNumberOfComponents()
-                  << "  tuples: " << array->GetNumberOfTuples() << std::endl;
-    }
-
-    // --- Cell Data ---
-    vtkCellData* cellData = dataset->GetCellData();
-    std::cout << "Cell Data Arrays:" << std::endl;
-    for (int i = 0; i < cellData->GetNumberOfArrays(); ++i)
-    {
-        vtkDataArray* array = cellData->GetArray(i);
-        std::cout << "  [" << i << "] " << array->GetName()
-                  << "  components: " << array->GetNumberOfComponents()
-                  << "  tuples: " << array->GetNumberOfTuples() << std::endl;
-    }
-}
-
-
-void loadVTKCellData_3D(vtkSmartPointer<vtkDataSet> dataSet, const char* cellDataName, sofa::type::vector<sofa::type::Vec3>& data)
-{
-    vtkCellData* cellData = dataSet->GetCellData();
-    
-    vtkDataArray* array = cellData->GetArray(cellDataName);
-
-    if (array)
-    {
-        const auto nbCells = dataSet->GetNumberOfCells();
-        data.resize(nbCells);
-
-        std::cout << "vtkCellData found, loading: " << cellDataName << " -> " << nbCells << " cells" << std::endl;
-        for (vtkIdType cellId = 0; cellId < nbCells; ++cellId)
-        {
-            double value[3];  // assuming max 3 components
-            array->GetTuple(cellId, value);
-            //std::cout << "Cell " << cellId << ": ";
-
-            data[cellId] = sofa::type::Vec3(value[0], value[1], value[2]);
-        }
-    }
-}   
+// Explicit instantiation for scalar case only
+template void extractCellData<SReal, 1>(vtkSmartPointer<vtkDataSet>, const char*, sofa::type::vector<SReal>&);
 
 }  // namespace sofavtk
