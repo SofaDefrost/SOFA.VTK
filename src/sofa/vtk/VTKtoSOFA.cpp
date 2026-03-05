@@ -117,7 +117,4 @@ void extractCells(sofa::core::loader::MeshLoader& loader, vtkSmartPointer<vtkDat
     }
 }
 
-// Explicit instantiation for scalar case only
-template void extractCellData<SReal, 1>(vtkSmartPointer<vtkDataSet>, const char*, sofa::type::vector<SReal>&);
-
 }  // namespace sofavtk

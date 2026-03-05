@@ -39,8 +39,17 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
     }
 
     const int numComponents = array->GetNumberOfComponents();
+    const int dataType = array->GetDataType();
+    const bool isInteger = (dataType != VTK_FLOAT && dataType != VTK_DOUBLE);
 
-    // Dispatch based on number of components
+    // Integer scalar arrays (material IDs, region flags, indices, 0/1 switches)
+    if (isInteger && numComponents == 1)
+    {
+        loadCellDataArray<int, 1>(dataset, arrayName);
+        return;
+    }
+
+    // Float/double arrays dispatched by component count
     switch (numComponents)
     {
     case 1:
