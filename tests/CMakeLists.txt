@@ -21,3 +21,9 @@ vtk_module_autoinit(
 )
 
 add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
+
+# On Windows the test binary needs VTK and SOFA DLLs on PATH at runtime.
+if(WIN32)
+    set_tests_properties(${PROJECT_NAME} PROPERTIES
+        ENVIRONMENT "PATH=$<TARGET_FILE_DIR:VTK::CommonCore>\;$<TARGET_FILE_DIR:Sofa.Core>\;$ENV{PATH}")
+endif()
