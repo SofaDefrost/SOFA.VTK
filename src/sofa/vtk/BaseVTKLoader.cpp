@@ -130,6 +130,7 @@ void BaseVTKLoader::loadDataArrayByName(vtkFieldData* fieldData, const std::stri
     // CanonicalLong_t to int/long long based on their size on the current platform.
     using SupportedTypes = vtkTypeList::Create<
         float, double,
+        signed char, unsigned char,
         int, unsigned int,
         long, unsigned long,
         long long, unsigned long long>;
