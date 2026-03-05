@@ -12,7 +12,7 @@ namespace
 {
 
 template<class Reader>
-vtkSmartPointer<vtkDataSet> getDataSet(std::string fileName)
+vtkSmartPointer<vtkDataSet> getDataSet(const std::string& fileName)
 {
     vtkNew<Reader> reader;
     reader->SetFileName(fileName.c_str());
@@ -30,7 +30,7 @@ template<> struct CanonicalLong<unsigned long>           { using type = std::con
 template<typename T>
 using CanonicalLong_t = typename CanonicalLong<T>::type;
 
-struct ScalarCellDataWorker
+struct ScalarDataWorker
 {
     sofavtk::BaseVTKLoader& loader;
     const std::string& arrayName;
@@ -43,7 +43,7 @@ struct ScalarCellDataWorker
 
         auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<T>>>();
         dataPtr->setName(arrayName);
-        dataPtr->setHelp("Cell data loaded from VTK file");
+        dataPtr->setHelp("Data array loaded from VTK file");
 
         {
             auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
@@ -59,7 +59,7 @@ struct ScalarCellDataWorker
     }
 };
 
-struct MultiComponentCellDataWorker
+struct MultiComponentDataWorker
 {
     sofavtk::BaseVTKLoader& loader;
     const std::string& arrayName;
@@ -88,7 +88,7 @@ private:
     {
         auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<sofa::type::Vec<N, T>>>>();
         dataPtr->setName(arrayName);
-        dataPtr->setHelp("Cell data loaded from VTK file");
+        dataPtr->setHelp("Data array loaded from VTK file");
 
         {
             auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
@@ -113,20 +113,13 @@ private:
 namespace sofavtk
 {
 
-void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
-                                            const std::string& arrayName)
+void BaseVTKLoader::loadDataArrayByName(vtkFieldData* fieldData, const std::string& arrayName,
+                                        std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>>& storage)
 {
-    vtkCellData* cellData = dataset->GetCellData();
-    if (!cellData)
-    {
-        msg_warning() << "No cell data available in the dataset";
-        return;
-    }
-
-    vtkDataArray* array = cellData->GetArray(arrayName.c_str());
+    vtkDataArray* array = fieldData->GetArray(arrayName.c_str());
     if (!array)
     {
-        msg_warning() << "Cell data array '" << arrayName << "' not found in VTK file";
+        msg_warning() << fieldData->GetClassName() << " array '" << arrayName << "' not found in VTK file";
         return;
     }
 
@@ -147,82 +140,27 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
             worker(array);
         if (worker.result)
         {
-            msg_info() << "Loaded cell data '" << arrayName << "' with "
-                       << array->GetNumberOfTuples() << " entries";
-            m_cellData[arrayName] = std::move(worker.result);
+            msg_info() << "Loaded " << fieldData->GetClassName() << " '" << arrayName
+                       << "' with " << array->GetNumberOfTuples() << " entries";
+            storage[arrayName] = std::move(worker.result);
         }
     };
 
     if (numComponents == 1)
     {
-        ScalarCellDataWorker worker{*this, arrayName};
+        ScalarDataWorker worker{*this, arrayName};
         dispatch(worker);
         return;
     }
 
     if (numComponents > 9)
     {
-        msg_warning() << "Cell data array '" << arrayName
+        msg_warning() << fieldData->GetClassName() << " array '" << arrayName
             << "' has " << numComponents << " components (max supported: 9)";
         return;
     }
 
-    MultiComponentCellDataWorker worker{*this, arrayName, numComponents};
-    dispatch(worker);
-}
-
-void BaseVTKLoader::loadPointDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
-                                             const std::string& arrayName)
-{
-    vtkPointData* pointData = dataset->GetPointData();
-    if (!pointData)
-    {
-        msg_warning() << "No point data available in the dataset";
-        return;
-    }
-
-    vtkDataArray* array = pointData->GetArray(arrayName.c_str());
-    if (!array)
-    {
-        msg_warning() << "Point data array '" << arrayName << "' not found in VTK file";
-        return;
-    }
-
-    const int numComponents = array->GetNumberOfComponents();
-
-    using SupportedTypes = vtkTypeList::Create<
-        float, double,
-        int, unsigned int,
-        long, unsigned long,
-        long long, unsigned long long>;
-    using Dispatcher = vtkArrayDispatch::DispatchByValueType<SupportedTypes>;
-
-    auto dispatch = [&](auto& worker) {
-        if (!Dispatcher::Execute(array, worker))
-            worker(array);
-        if (worker.result)
-        {
-            msg_info() << "Loaded point data '" << arrayName << "' with "
-                       << array->GetNumberOfTuples() << " entries";
-            m_pointData[arrayName] = std::move(worker.result);
-        }
-    };
-
-    if (numComponents == 1)
-    {
-        ScalarCellDataWorker worker{*this, arrayName};
-        dispatch(worker);
-        return;
-    }
-
-    if (numComponents > 9)
-    {
-        msg_warning() << "Point data array '" << arrayName
-            << "' has " << numComponents << " components (max supported: 9)";
-        return;
-    }
-
-    MultiComponentCellDataWorker worker{*this, arrayName, numComponents};
+    MultiComponentDataWorker worker{*this, arrayName, numComponents};
     dispatch(worker);
 }
 
@@ -242,11 +180,14 @@ bool BaseVTKLoader::doLoad()
 
         sofavtk::extractCells(*this, dataSet);
 
+        auto* cellData  = dataSet->GetCellData();
+        auto* pointData = dataSet->GetPointData();
+
         for (const auto& arrayName : d_cellDataNames.getValue())
-            loadCellDataArrayByName(dataSet, arrayName);
+            loadDataArrayByName(cellData, arrayName, m_cellData);
 
         for (const auto& arrayName : d_pointDataNames.getValue())
-            loadPointDataArrayByName(dataSet, arrayName);
+            loadDataArrayByName(pointData, arrayName, m_pointData);
 
         return true;
     }
@@ -256,13 +197,14 @@ bool BaseVTKLoader::doLoad()
 
 void BaseVTKLoader::doClearBuffers()
 {
-    for (auto& pair : m_cellData)
-        this->removeData(pair.second.get());
-    m_cellData.clear();
+    auto clearMap = [&](auto& map) {
+        for (const auto& [name, data] : map)
+            this->removeData(data.get());
+        map.clear();
+    };
 
-    for (auto& pair : m_pointData)
-        this->removeData(pair.second.get());
-    m_pointData.clear();
+    clearMap(m_cellData);
+    clearMap(m_pointData);
 }
 
 

@@ -2,6 +2,7 @@
 #include <sofa/vtk/config.h>
 #include <sofa/core/loader/MeshLoader.h>
 #include <vtkDataSet.h>
+#include <vtkFieldData.h>
 #include <vtkSmartPointer.h>
 #include <cstdint>
 #include <memory>
@@ -27,8 +28,8 @@ private:
     bool doLoad() final;
     void doClearBuffers() final;
 
-    void loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
-    void loadPointDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
+    void loadDataArrayByName(vtkFieldData* fieldData, const std::string& arrayName,
+                             std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>>& storage);
 
     std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_cellData;
     std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_pointData;
