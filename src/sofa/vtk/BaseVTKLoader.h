@@ -28,6 +28,7 @@ private:
     void doClearBuffers() final;
 
     void loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
+    void loadPointDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
 
     std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_cellData;
     std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_pointData;

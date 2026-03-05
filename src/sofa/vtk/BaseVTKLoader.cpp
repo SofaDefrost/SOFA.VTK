@@ -3,6 +3,7 @@
 #include <vtkArrayDispatch.h>
 #include <vtkCellData.h>
 #include <vtkDataArray.h>
+#include <vtkPointData.h>
 #include <vtkDataArrayRange.h>
 #include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
@@ -170,6 +171,61 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
     dispatch(worker);
 }
 
+void BaseVTKLoader::loadPointDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
+                                             const std::string& arrayName)
+{
+    vtkPointData* pointData = dataset->GetPointData();
+    if (!pointData)
+    {
+        msg_warning() << "No point data available in the dataset";
+        return;
+    }
+
+    vtkDataArray* array = pointData->GetArray(arrayName.c_str());
+    if (!array)
+    {
+        msg_warning() << "Point data array '" << arrayName << "' not found in VTK file";
+        return;
+    }
+
+    const int numComponents = array->GetNumberOfComponents();
+
+    using SupportedTypes = vtkTypeList::Create<
+        float, double,
+        int, unsigned int,
+        long, unsigned long,
+        long long, unsigned long long>;
+    using Dispatcher = vtkArrayDispatch::DispatchByValueType<SupportedTypes>;
+
+    auto dispatch = [&](auto& worker) {
+        if (!Dispatcher::Execute(array, worker))
+            worker(array);
+        if (worker.result)
+        {
+            msg_info() << "Loaded point data '" << arrayName << "' with "
+                       << array->GetNumberOfTuples() << " entries";
+            m_pointData[arrayName] = std::move(worker.result);
+        }
+    };
+
+    if (numComponents == 1)
+    {
+        ScalarCellDataWorker worker{*this, arrayName};
+        dispatch(worker);
+        return;
+    }
+
+    if (numComponents > 9)
+    {
+        msg_warning() << "Point data array '" << arrayName
+            << "' has " << numComponents << " components (max supported: 9)";
+        return;
+    }
+
+    MultiComponentCellDataWorker worker{*this, arrayName, numComponents};
+    dispatch(worker);
+}
+
 bool BaseVTKLoader::doLoad()
 {
     const auto& fileName = d_filename.getFullPath();
@@ -189,6 +245,9 @@ bool BaseVTKLoader::doLoad()
         for (const auto& arrayName : d_cellDataNames.getValue())
             loadCellDataArrayByName(dataSet, arrayName);
 
+        for (const auto& arrayName : d_pointDataNames.getValue())
+            loadPointDataArrayByName(dataSet, arrayName);
+
         return true;
     }
 
@@ -199,8 +258,11 @@ void BaseVTKLoader::doClearBuffers()
 {
     for (auto& pair : m_cellData)
         this->removeData(pair.second.get());
-
     m_cellData.clear();
+
+    for (auto& pair : m_pointData)
+        this->removeData(pair.second.get());
+    m_pointData.clear();
 }
 
 
