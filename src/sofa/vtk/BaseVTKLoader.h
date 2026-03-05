@@ -14,10 +14,13 @@ struct SOFA_VTK_API BaseVTKLoader : sofa::core::loader::MeshLoader
 {
     SOFA_ABSTRACT_CLASS(BaseVTKLoader, sofa::core::loader::MeshLoader);
 
-    /// Names of VTK cell data arrays to load
     sofa::core::objectmodel::Data<sofa::type::vector<std::string>> d_cellDataNames{
         initData(&d_cellDataNames, "cellDataNames",
                  "Names of cell data arrays to load from the VTK file")};
+
+    sofa::core::objectmodel::Data<sofa::type::vector<std::string>> d_pointDataNames{
+        initData(&d_pointDataNames, "pointDataNames",
+                 "Names of point data arrays to load from the VTK file")};
 
 private:
 
@@ -26,8 +29,8 @@ private:
 
     void loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
 
-    /// Unified storage for all dynamically created Data objects
     std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_cellData;
+    std::map<std::string, std::unique_ptr<sofa::core::objectmodel::BaseData>> m_pointData;
 
 protected:
 

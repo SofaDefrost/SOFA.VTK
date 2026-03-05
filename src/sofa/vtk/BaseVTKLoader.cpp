@@ -1,8 +1,11 @@
 #include <sofa/vtk/BaseVTKLoader.h>
 #include <sofa/vtk/VTKtoSOFA.h>
+#include <vtkArrayDispatch.h>
+#include <vtkCellData.h>
+#include <vtkDataArray.h>
+#include <vtkDataArrayRange.h>
 #include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
-#include <vtkCellData.h>
 
 namespace
 {
@@ -31,7 +34,6 @@ struct ScalarCellDataWorker
     sofavtk::BaseVTKLoader& loader;
     const std::string& arrayName;
     std::unique_ptr<sofa::core::objectmodel::BaseData> result;
-    vtkIdType numLoaded = 0;
 
     template<typename ArrayT>
     void operator()(ArrayT* array)
@@ -49,7 +51,6 @@ struct ScalarCellDataWorker
             vtkIdType i = 0;
             for (const auto v : vtk::DataArrayValueRange<1>(array))
                 vec[i++] = v;
-            numLoaded = i;
         }
 
         loader.addData(dataPtr.get(), arrayName);
@@ -63,7 +64,6 @@ struct MultiComponentCellDataWorker
     const std::string& arrayName;
     int numComponents;
     std::unique_ptr<sofa::core::objectmodel::BaseData> result;
-    vtkIdType numLoaded = 0;
 
     template<typename ArrayT>
     void operator()(ArrayT* array)
@@ -100,7 +100,6 @@ private:
                     vec[i][c] = tuple[c];
                 ++i;
             }
-            numLoaded = i;
         }
 
         loader.addData(dataPtr.get(), arrayName);
@@ -142,16 +141,21 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
         long long, unsigned long long>;
     using Dispatcher = vtkArrayDispatch::DispatchByValueType<SupportedTypes>;
 
-    if (numComponents == 1)
-    {
-        ScalarCellDataWorker worker{*this, arrayName};
+    auto dispatch = [&](auto& worker) {
         if (!Dispatcher::Execute(array, worker))
             worker(array);
         if (worker.result)
         {
-            msg_info() << "Loaded cell data '" << arrayName << "' with " << worker.numLoaded << " entries";
+            msg_info() << "Loaded cell data '" << arrayName << "' with "
+                       << array->GetNumberOfTuples() << " entries";
             m_cellData[arrayName] = std::move(worker.result);
         }
+    };
+
+    if (numComponents == 1)
+    {
+        ScalarCellDataWorker worker{*this, arrayName};
+        dispatch(worker);
         return;
     }
 
@@ -163,13 +167,7 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
     }
 
     MultiComponentCellDataWorker worker{*this, arrayName, numComponents};
-    if (!Dispatcher::Execute(array, worker))
-        worker(array);
-    if (worker.result)
-    {
-        msg_info() << "Loaded cell data '" << arrayName << "' with " << worker.numLoaded << " entries";
-        m_cellData[arrayName] = std::move(worker.result);
-    }
+    dispatch(worker);
 }
 
 bool BaseVTKLoader::doLoad()
