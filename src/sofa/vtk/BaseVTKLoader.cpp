@@ -16,6 +16,16 @@ vtkSmartPointer<vtkDataSet> getDataSet(std::string fileName)
     return reader->GetOutput();
 }
 
+// long and unsigned long have platform-dependent sizes (32-bit on Windows, 64-bit on Linux/Mac).
+// Remap them to the fixed-size type of the same width so the SOFA Data type is consistent
+// and predictable regardless of platform.
+template<typename T> struct CanonicalLong                { using type = T;                                                              };
+template<> struct CanonicalLong<long>                    { using type = std::conditional_t<sizeof(long) == 4, int, long long>;          };
+template<> struct CanonicalLong<unsigned long>           { using type = std::conditional_t<sizeof(unsigned long) == 4, unsigned int, unsigned long long>; };
+
+template<typename T>
+using CanonicalLong_t = typename CanonicalLong<T>::type;
+
 struct ScalarCellDataWorker
 {
     sofavtk::BaseVTKLoader& loader;
@@ -26,7 +36,7 @@ struct ScalarCellDataWorker
     template<typename ArrayT>
     void operator()(ArrayT* array)
     {
-        using T = vtk::GetAPIType<ArrayT>;
+        using T = CanonicalLong_t<vtk::GetAPIType<ArrayT>>;
 
         auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<T>>>();
         dataPtr->setName(arrayName);
@@ -58,7 +68,7 @@ struct MultiComponentCellDataWorker
     template<typename ArrayT>
     void operator()(ArrayT* array)
     {
-        using T = vtk::GetAPIType<ArrayT>;
+        using T = CanonicalLong_t<vtk::GetAPIType<ArrayT>>;
         dispatchN<T, 2>(array);
     }
 
@@ -122,7 +132,15 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
 
     const int numComponents = array->GetNumberOfComponents();
 
-    using Dispatcher = vtkArrayDispatch::DispatchByValueType<vtkArrayDispatch::AllTypes>;
+    // Explicitly supported value types. Each maps to a fixed-size C++ type that SOFA's
+    // type system reliably handles. long and unsigned long are included and remapped via
+    // CanonicalLong_t to int/long long based on their size on the current platform.
+    using SupportedTypes = vtkTypeList::Create<
+        float, double,
+        int, unsigned int,
+        long, unsigned long,
+        long long, unsigned long long>;
+    using Dispatcher = vtkArrayDispatch::DispatchByValueType<SupportedTypes>;
 
     if (numComponents == 1)
     {
