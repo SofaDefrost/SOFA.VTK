@@ -16,9 +16,6 @@ vtkSmartPointer<vtkDataSet> getDataSet(std::string fileName)
     return reader->GetOutput();
 }
 
-/// Dispatch worker for scalar cell data arrays.
-/// The concrete array type ArrayT is deduced by vtkArrayDispatch, so T = vtk::GetAPIType<ArrayT>
-/// is the exact native C++ scalar type. Data is copied losslessly with no manual type checks.
 struct ScalarCellDataWorker
 {
     sofavtk::BaseVTKLoader& loader;
@@ -42,6 +39,57 @@ struct ScalarCellDataWorker
             vtkIdType i = 0;
             for (const auto v : vtk::DataArrayValueRange<1>(array))
                 vec[i++] = v;
+            numLoaded = i;
+        }
+
+        loader.addData(dataPtr.get(), arrayName);
+        result = std::move(dataPtr);
+    }
+};
+
+struct MultiComponentCellDataWorker
+{
+    sofavtk::BaseVTKLoader& loader;
+    const std::string& arrayName;
+    int numComponents;
+    std::unique_ptr<sofa::core::objectmodel::BaseData> result;
+    vtkIdType numLoaded = 0;
+
+    template<typename ArrayT>
+    void operator()(ArrayT* array)
+    {
+        using T = vtk::GetAPIType<ArrayT>;
+        dispatchN<T, 2>(array);
+    }
+
+private:
+    template<typename T, int N, typename ArrayT>
+    void dispatchN(ArrayT* array)
+    {
+        if (numComponents == N)
+            fill<T, N>(array);
+        else if constexpr (N < 9)
+            dispatchN<T, N + 1>(array);
+    }
+
+    template<typename T, int N, typename ArrayT>
+    void fill(ArrayT* array)
+    {
+        auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<sofa::type::Vec<N, T>>>>();
+        dataPtr->setName(arrayName);
+        dataPtr->setHelp("Cell data loaded from VTK file");
+
+        {
+            auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
+            auto& vec = accessor.wref();
+            vec.resize(array->GetNumberOfTuples());
+            vtkIdType i = 0;
+            for (const auto tuple : vtk::DataArrayTupleRange<N>(array))
+            {
+                for (int c = 0; c < N; ++c)
+                    vec[i][c] = tuple[c];
+                ++i;
+            }
             numLoaded = i;
         }
 
@@ -74,12 +122,13 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
 
     const int numComponents = array->GetNumberOfComponents();
 
+    using Dispatcher = vtkArrayDispatch::DispatchByValueType<vtkArrayDispatch::AllTypes>;
+
     if (numComponents == 1)
     {
         ScalarCellDataWorker worker{*this, arrayName};
-        using Dispatcher = vtkArrayDispatch::DispatchByValueType<vtkArrayDispatch::AllTypes>;
         if (!Dispatcher::Execute(array, worker))
-            worker(array);  // fallback: ArrayT = vtkDataArray, T = double
+            worker(array);
         if (worker.result)
         {
             msg_info() << "Loaded cell data '" << arrayName << "' with " << worker.numLoaded << " entries";
@@ -88,46 +137,21 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
         return;
     }
 
-    // Multi-component arrays: always mapped to Vec<N, SReal>
-    switch (numComponents)
+    if (numComponents > 9)
     {
-    case 2:
-        loadCellDataArray<sofa::type::Vec<2, SReal>, 2>(dataset, arrayName);
-        break;
-    case 3:
-        loadCellDataArray<sofa::type::Vec<3, SReal>, 3>(dataset, arrayName);
-        break;
-    case 4:
-        loadCellDataArray<sofa::type::Vec<4, SReal>, 4>(dataset, arrayName);
-        break;
-    case 6:
-        loadCellDataArray<sofa::type::Vec<6, SReal>, 6>(dataset, arrayName);
-        break;
-    case 9:
-        loadCellDataArray<sofa::type::Vec<9, SReal>, 9>(dataset, arrayName);
-        break;
-    default:
         msg_warning() << "Cell data array '" << arrayName
-            << "' has unsupported number of components: " << numComponents;
-        break;
+            << "' has " << numComponents << " components (max supported: 9)";
+        return;
     }
-}
 
-template<typename DataType, int NumComponents>
-void BaseVTKLoader::loadCellDataArray(vtkSmartPointer<vtkDataSet> dataset,
-                                      const std::string& arrayName)
-{
-    auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<DataType>>>();
-    dataPtr->setName(arrayName);
-    dataPtr->setHelp("Cell data loaded from VTK file");
-    this->addData(dataPtr.get(), arrayName);
-
-    auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
-    sofavtk::extractCellData<DataType, NumComponents>(dataset, arrayName.c_str(), accessor.wref());
-
-    msg_info() << "Loaded cell data '" << arrayName << "' with " << accessor->size() << " entries";
-
-    m_cellData[arrayName] = std::move(dataPtr);
+    MultiComponentCellDataWorker worker{*this, arrayName, numComponents};
+    if (!Dispatcher::Execute(array, worker))
+        worker(array);
+    if (worker.result)
+    {
+        msg_info() << "Loaded cell data '" << arrayName << "' with " << worker.numLoaded << " entries";
+        m_cellData[arrayName] = std::move(worker.result);
+    }
 }
 
 bool BaseVTKLoader::doLoad()

@@ -24,12 +24,6 @@ private:
     bool doLoad() final;
     void doClearBuffers() final;
 
-    /// Load a cell data array from VTK dataset
-    template<typename DataType, int NumComponents>
-    void loadCellDataArray(vtkSmartPointer<vtkDataSet> dataset,
-                          const std::string& arrayName);
-
-    /// Dispatch cell data loading based on VTK type and number of components
     void loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, const std::string& arrayName);
 
     /// Unified storage for all dynamically created Data objects

@@ -24,8 +24,6 @@ void SOFA_VTK_API extractCells(
 namespace detail
 {
 
-/// Worker functor invoked by vtkArrayDispatch with the concrete array type.
-/// Falls back to the vtkDataArray virtual API when dispatch finds no match.
 template<typename SofaType, int NumComponents>
 struct CellDataWorker
 {
@@ -71,7 +69,7 @@ void extractCellData(vtkSmartPointer<vtkDataSet> dataSet, const char* arrayName,
     detail::CellDataWorker<SofaType, NumComponents> worker{data};
     using Dispatcher = vtkArrayDispatch::DispatchByValueType<vtkArrayDispatch::AllTypes>;
     if (!Dispatcher::Execute(array, worker))
-        worker(array);  // fallback via vtkDataArray virtual API
+        worker(array);
 }
 
 }
