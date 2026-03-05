@@ -16,12 +16,46 @@ vtkSmartPointer<vtkDataSet> getDataSet(std::string fileName)
     return reader->GetOutput();
 }
 
+/// Dispatch worker for scalar cell data arrays.
+/// The concrete array type ArrayT is deduced by vtkArrayDispatch, so T = vtk::GetAPIType<ArrayT>
+/// is the exact native C++ scalar type. Data is copied losslessly with no manual type checks.
+struct ScalarCellDataWorker
+{
+    sofavtk::BaseVTKLoader& loader;
+    const std::string& arrayName;
+    std::unique_ptr<sofa::core::objectmodel::BaseData> result;
+    vtkIdType numLoaded = 0;
+
+    template<typename ArrayT>
+    void operator()(ArrayT* array)
+    {
+        using T = vtk::GetAPIType<ArrayT>;
+
+        auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<T>>>();
+        dataPtr->setName(arrayName);
+        dataPtr->setHelp("Cell data loaded from VTK file");
+
+        {
+            auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
+            auto& vec = accessor.wref();
+            vec.resize(array->GetNumberOfTuples());
+            vtkIdType i = 0;
+            for (const auto v : vtk::DataArrayValueRange<1>(array))
+                vec[i++] = v;
+            numLoaded = i;
+        }
+
+        loader.addData(dataPtr.get(), arrayName);
+        result = std::move(dataPtr);
+    }
+};
+
 }
 
 namespace sofavtk
 {
 
-void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset, 
+void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
                                             const std::string& arrayName)
 {
     vtkCellData* cellData = dataset->GetCellData();
@@ -39,22 +73,24 @@ void BaseVTKLoader::loadCellDataArrayByName(vtkSmartPointer<vtkDataSet> dataset,
     }
 
     const int numComponents = array->GetNumberOfComponents();
-    const int dataType = array->GetDataType();
-    const bool isInteger = (dataType != VTK_FLOAT && dataType != VTK_DOUBLE);
 
-    // Integer scalar arrays (material IDs, region flags, indices, 0/1 switches)
-    if (isInteger && numComponents == 1)
+    if (numComponents == 1)
     {
-        loadCellDataArray<int, 1>(dataset, arrayName);
+        ScalarCellDataWorker worker{*this, arrayName};
+        using Dispatcher = vtkArrayDispatch::DispatchByValueType<vtkArrayDispatch::AllTypes>;
+        if (!Dispatcher::Execute(array, worker))
+            worker(array);  // fallback: ArrayT = vtkDataArray, T = double
+        if (worker.result)
+        {
+            msg_info() << "Loaded cell data '" << arrayName << "' with " << worker.numLoaded << " entries";
+            m_cellData[arrayName] = std::move(worker.result);
+        }
         return;
     }
 
-    // Float/double arrays dispatched by component count
+    // Multi-component arrays: always mapped to Vec<N, SReal>
     switch (numComponents)
     {
-    case 1:
-        loadCellDataArray<SReal, 1>(dataset, arrayName);
-        break;
     case 2:
         loadCellDataArray<sofa::type::Vec<2, SReal>, 2>(dataset, arrayName);
         break;
@@ -81,19 +117,16 @@ template<typename DataType, int NumComponents>
 void BaseVTKLoader::loadCellDataArray(vtkSmartPointer<vtkDataSet> dataset,
                                       const std::string& arrayName)
 {
-    // Create a new Data object for this array and add it to Base
     auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<DataType>>>();
     dataPtr->setName(arrayName);
     dataPtr->setHelp("Cell data loaded from VTK file");
     this->addData(dataPtr.get(), arrayName);
 
-    // Load the data from VTK
     auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
     sofavtk::extractCellData<DataType, NumComponents>(dataset, arrayName.c_str(), accessor.wref());
 
     msg_info() << "Loaded cell data '" << arrayName << "' with " << accessor->size() << " entries";
 
-    // Store the pointer because Base does not manage it
     m_cellData[arrayName] = std::move(dataPtr);
 }
 
