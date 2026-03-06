@@ -4,7 +4,6 @@
 #include <sofa/core/objectmodel/Data.h>
 #include <sofa/type/Vec.h>
 #include <sofa/type/vector.h>
-#include <filesystem>
 
 #include "TestFixtures.h"
 
@@ -30,16 +29,7 @@ const sofa::type::vector<T>* getVec(sofa::core::objectmodel::Base* obj,
 class CellPointDataTest : public sofa::testing::BaseSimulationTest
 {
 protected:
-    std::string m_fixturePath;
     std::unique_ptr<SceneInstance> m_scene;
-
-    void doSetUp() override
-    {
-        m_fixturePath =
-            (std::filesystem::temp_directory_path() / "sofa_vtk_test_fixture.vtu")
-                .string();
-        writeTestFixture(m_fixturePath);
-    }
 
     sofavtk::UnstructuredGridVTKLoader* makeLoader(
         const std::vector<std::string>& cellNames = {},
@@ -50,7 +40,7 @@ protected:
             sofa::core::objectmodel::New<sofavtk::UnstructuredGridVTKLoader>();
         m_scene->root->addObject(loader);
 
-        loader->d_filename.setValue(m_fixturePath);
+        loader->d_filename.setValue(fixtureVtuPath());
         loader->d_cellDataNames.setValue(
             sofa::type::vector<std::string>(cellNames.begin(), cellNames.end()));
         loader->d_pointDataNames.setValue(
@@ -61,53 +51,64 @@ protected:
     }
 };
 
+// Fixture has 10 cells (2 quads + 2 tris + 2 hexas + 4 tets)
+// and 22 points.
+
+// pressure = centroid z: 0.0 for surface cells, 1.5 for hexas, 2.25 for tets
 TEST_F(CellPointDataTest, CellData_ScalarFloat)
 {
     auto* loader = makeLoader({"pressure"});
     const auto* v = getVec<float>(loader, "pressure");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
-    EXPECT_FLOAT_EQ((*v)[0], 1.0f);
-    EXPECT_FLOAT_EQ((*v)[1], 2.0f);
-    EXPECT_FLOAT_EQ((*v)[2], 3.0f);
-    EXPECT_FLOAT_EQ((*v)[3], 4.0f);
+    ASSERT_EQ(v->size(), 10u);
+    // Zone A: centroid z = 0.0
+    EXPECT_FLOAT_EQ((*v)[0], 0.0f);
+    EXPECT_FLOAT_EQ((*v)[3], 0.0f);
+    // Zone B: centroid z = 1.5
+    EXPECT_FLOAT_EQ((*v)[4], 1.5f);
+    EXPECT_FLOAT_EQ((*v)[5], 1.5f);
+    // Zone C: centroid z = 2.25
+    EXPECT_FLOAT_EQ((*v)[6], 2.25f);
+    EXPECT_FLOAT_EQ((*v)[9], 2.25f);
 }
 
+// material_id = zone id: 1=surface, 2=hexa, 3=tet
 TEST_F(CellPointDataTest, CellData_ScalarInt)
 {
     auto* loader = makeLoader({"material_id"});
     const auto* v = getVec<int>(loader, "material_id");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
-    EXPECT_EQ((*v)[0], 10);
-    EXPECT_EQ((*v)[1], 20);
-    EXPECT_EQ((*v)[2], 30);
-    EXPECT_EQ((*v)[3], 40);
+    ASSERT_EQ(v->size(), 10u);
+    EXPECT_EQ((*v)[0], 1);   // quad
+    EXPECT_EQ((*v)[2], 1);   // triangle
+    EXPECT_EQ((*v)[4], 2);   // hexa
+    EXPECT_EQ((*v)[6], 3);   // tet
 }
 
+// fiber_direction = normalised centroid vector
 TEST_F(CellPointDataTest, CellData_Vec3Double)
 {
     using Vec3d = sofa::type::Vec<3, double>;
     auto* loader = makeLoader({"fiber_direction"});
     const auto* v = getVec<Vec3d>(loader, "fiber_direction");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
+    ASSERT_EQ(v->size(), 10u);
 
-    EXPECT_DOUBLE_EQ((*v)[0][0], 1.0);
-    EXPECT_DOUBLE_EQ((*v)[0][1], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[0][2], 0.0);
+    // Every entry must be a unit vector
+    for (std::size_t i = 0; i < v->size(); ++i)
+    {
+        const double mag = (*v)[i].norm();
+        EXPECT_NEAR(mag, 1.0, 1e-9) << "cell " << i << " fiber_direction is not unit";
+    }
 
-    EXPECT_DOUBLE_EQ((*v)[1][0], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[1][1], 1.0);
-    EXPECT_DOUBLE_EQ((*v)[1][2], 0.0);
+    // Cell 0 centroid = (0.5, 0.5, 0) → normalised (1/√2, 1/√2, 0)
+    const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
+    EXPECT_NEAR((*v)[0][0], inv_sqrt2, 1e-9);
+    EXPECT_NEAR((*v)[0][1], inv_sqrt2, 1e-9);
+    EXPECT_NEAR((*v)[0][2], 0.0,       1e-9);
 
-    EXPECT_DOUBLE_EQ((*v)[2][0], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[2][1], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[2][2], 1.0);
-
-    EXPECT_NEAR((*v)[3][0], 0.577, 1e-6);
-    EXPECT_NEAR((*v)[3][1], 0.577, 1e-6);
-    EXPECT_NEAR((*v)[3][2], 0.577, 1e-6);
+    // Zone C tets: centroid z >> x,y so z-component dominates
+    EXPECT_GT((*v)[6][2], 0.9);
 }
 
 TEST_F(CellPointDataTest, CellData_Int8)
@@ -115,11 +116,10 @@ TEST_F(CellPointDataTest, CellData_Int8)
     auto* loader = makeLoader({"int8_data"});
     const auto* v = getVec<signed char>(loader, "int8_data");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
-    EXPECT_EQ(static_cast<int>((*v)[0]), 1);
-    EXPECT_EQ(static_cast<int>((*v)[1]), 2);
-    EXPECT_EQ(static_cast<int>((*v)[2]), 3);
-    EXPECT_EQ(static_cast<int>((*v)[3]), 4);
+    ASSERT_EQ(v->size(), 10u);
+    // int8_data = cell index + 1
+    for (std::size_t i = 0; i < v->size(); ++i)
+        EXPECT_EQ(static_cast<int>((*v)[i]), static_cast<int>(i + 1));
 }
 
 TEST_F(CellPointDataTest, CellData_Int32)
@@ -127,11 +127,10 @@ TEST_F(CellPointDataTest, CellData_Int32)
     auto* loader = makeLoader({"int32_data"});
     const auto* v = getVec<int>(loader, "int32_data");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
-    EXPECT_EQ((*v)[0], 100);
-    EXPECT_EQ((*v)[1], 200);
-    EXPECT_EQ((*v)[2], 300);
-    EXPECT_EQ((*v)[3], 400);
+    ASSERT_EQ(v->size(), 10u);
+    // int32_data = (cell index + 1) * 100
+    for (std::size_t i = 0; i < v->size(); ++i)
+        EXPECT_EQ((*v)[i], static_cast<int>((i + 1) * 100));
 }
 
 TEST_F(CellPointDataTest, CellData_Int64)
@@ -139,45 +138,49 @@ TEST_F(CellPointDataTest, CellData_Int64)
     auto* loader = makeLoader({"int64_data"});
     const auto* v = getVec<long long>(loader, "int64_data");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 4u);
-    EXPECT_EQ((*v)[0], 10000LL);
-    EXPECT_EQ((*v)[1], 20000LL);
-    EXPECT_EQ((*v)[2], 30000LL);
-    EXPECT_EQ((*v)[3], 40000LL);
+    ASSERT_EQ(v->size(), 10u);
+    // int64_data = (cell index + 1) * 10000
+    for (std::size_t i = 0; i < v->size(); ++i)
+        EXPECT_EQ((*v)[i], static_cast<long long>((i + 1) * 10000));
 }
 
+// temperature = x + y + z per point, range 0.0 (P0 at origin) to 5.0 (P19)
 TEST_F(CellPointDataTest, PointData_ScalarDouble)
 {
     auto* loader = makeLoader({}, {"temperature"});
     const auto* v = getVec<double>(loader, "temperature");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 5u);
-    EXPECT_DOUBLE_EQ((*v)[0], 0.1);
-    EXPECT_DOUBLE_EQ((*v)[1], 0.2);
-    EXPECT_DOUBLE_EQ((*v)[2], 0.3);
-    EXPECT_DOUBLE_EQ((*v)[3], 0.4);
-    EXPECT_DOUBLE_EQ((*v)[4], 0.5);
+    ASSERT_EQ(v->size(), 22u);
+    EXPECT_DOUBLE_EQ((*v)[0],  0.0);   // P0  (0,0,0)
+    EXPECT_DOUBLE_EQ((*v)[1],  1.0);   // P1  (1,0,0)
+    EXPECT_DOUBLE_EQ((*v)[5],  3.0);   // P5  (2,1,0)
+    EXPECT_DOUBLE_EQ((*v)[19], 5.0);   // P19 (2,1,2)
+    EXPECT_DOUBLE_EQ((*v)[21], 4.0);   // P21 (0.5,0.5,3)
 }
 
+// velocity = (x, y, z) per point — direction and magnitude encode position
 TEST_F(CellPointDataTest, PointData_Vec3Double)
 {
     using Vec3d = sofa::type::Vec<3, double>;
     auto* loader = makeLoader({}, {"velocity"});
     const auto* v = getVec<Vec3d>(loader, "velocity");
     ASSERT_NE(v, nullptr);
-    ASSERT_EQ(v->size(), 5u);
+    ASSERT_EQ(v->size(), 22u);
 
-    EXPECT_DOUBLE_EQ((*v)[0][0], 1.0);
+    // P0 (0,0,0) → zero velocity
+    EXPECT_DOUBLE_EQ((*v)[0][0], 0.0);
     EXPECT_DOUBLE_EQ((*v)[0][1], 0.0);
     EXPECT_DOUBLE_EQ((*v)[0][2], 0.0);
 
-    EXPECT_DOUBLE_EQ((*v)[3][0], 2.0);
-    EXPECT_DOUBLE_EQ((*v)[3][1], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[3][2], 0.0);
+    // P5 (2,1,0) → velocity = coordinates
+    EXPECT_DOUBLE_EQ((*v)[5][0], 2.0);
+    EXPECT_DOUBLE_EQ((*v)[5][1], 1.0);
+    EXPECT_DOUBLE_EQ((*v)[5][2], 0.0);
 
-    EXPECT_DOUBLE_EQ((*v)[4][0], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[4][1], 2.0);
-    EXPECT_DOUBLE_EQ((*v)[4][2], 0.0);
+    // P21 (0.5,0.5,3) → velocity = coordinates
+    EXPECT_DOUBLE_EQ((*v)[21][0], 0.5);
+    EXPECT_DOUBLE_EQ((*v)[21][1], 0.5);
+    EXPECT_DOUBLE_EQ((*v)[21][2], 3.0);
 }
 
 TEST_F(CellPointDataTest, MissingArrayName)
@@ -198,15 +201,15 @@ TEST_F(CellPointDataTest, MultipleArraysAtOnce)
 
     const auto* pressure = getVec<float>(loader, "pressure");
     ASSERT_NE(pressure, nullptr);
-    EXPECT_EQ(pressure->size(), 4u);
+    EXPECT_EQ(pressure->size(), 10u);
 
     const auto* matId = getVec<int>(loader, "material_id");
     ASSERT_NE(matId, nullptr);
-    EXPECT_EQ(matId->size(), 4u);
+    EXPECT_EQ(matId->size(), 10u);
 
     const auto* temp = getVec<double>(loader, "temperature");
     ASSERT_NE(temp, nullptr);
-    EXPECT_EQ(temp->size(), 5u);
+    EXPECT_EQ(temp->size(), 22u);
 }
 
 TEST_F(CellPointDataTest, Reload)
@@ -221,7 +224,7 @@ TEST_F(CellPointDataTest, Reload)
     EXPECT_EQ(loader->findData("pressure"), nullptr);
     const auto* matId = getVec<int>(loader, "material_id");
     ASSERT_NE(matId, nullptr);
-    EXPECT_EQ(matId->size(), 4u);
+    EXPECT_EQ(matId->size(), 10u);
 }
 
 // temperature is point data; requesting it as cell data must not load it
