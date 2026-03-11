@@ -20,12 +20,10 @@ vtkSmartPointer<vtkDataSet> getDataSet(const std::string& fileName)
     return reader->GetOutput();
 }
 
-// long and unsigned long have platform-dependent sizes (32-bit on Windows, 64-bit on Linux/Mac).
-// Remap them to the fixed-size type of the same width so the SOFA Data type is consistent
-// and predictable regardless of platform.
-template<typename T> struct CanonicalLong                { using type = T;                                                              };
-template<> struct CanonicalLong<long>                    { using type = std::conditional_t<sizeof(long) == 4, int, long long>;          };
-template<> struct CanonicalLong<unsigned long>           { using type = std::conditional_t<sizeof(unsigned long) == 4, unsigned int, unsigned long long>; };
+// Remap long and unsigned long which are platform dependent to a canonical fixed-width type
+template<typename T> struct CanonicalLong      { using type = T;};
+template<> struct CanonicalLong<long>          { using type = std::conditional_t<sizeof(long) == 4, int, long long>;};
+template<> struct CanonicalLong<unsigned long> { using type = std::conditional_t<sizeof(unsigned long) == 4, unsigned int, unsigned long long>; };
 
 template<typename T>
 using CanonicalLong_t = typename CanonicalLong<T>::type;
@@ -49,9 +47,10 @@ struct ScalarDataWorker
             auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
             auto& vec = accessor.wref();
             vec.resize(array->GetNumberOfTuples());
-            vtkIdType i = 0;
-            for (const auto v : vtk::DataArrayValueRange<1>(array))
-                vec[i++] = v;
+            auto values = vtk::DataArrayValueRange<1>(array);
+            const vtkIdType n = static_cast<vtkIdType>(array->GetNumberOfTuples());
+            for (vtkIdType i = 0; i < n; ++i)
+                vec[i] = values[i];
         }
 
         loader.addData(dataPtr.get(), arrayName);
@@ -74,6 +73,8 @@ struct MultiComponentDataWorker
     }
 
 private:
+    // Recursively dispatch fill function specialization based on the number of components until a 
+    // match is found or the max supported is reached.
     template<typename T, int N, typename ArrayT>
     void dispatchN(ArrayT* array)
     {
@@ -94,12 +95,12 @@ private:
             auto accessor = sofa::helper::getWriteOnlyAccessor(*dataPtr);
             auto& vec = accessor.wref();
             vec.resize(array->GetNumberOfTuples());
-            vtkIdType i = 0;
-            for (const auto tuple : vtk::DataArrayTupleRange<N>(array))
+            auto tuples = vtk::DataArrayTupleRange<N>(array);
+            const vtkIdType n = static_cast<vtkIdType>(array->GetNumberOfTuples());
+            for (vtkIdType i = 0; i < n; ++i)
             {
                 for (int c = 0; c < N; ++c)
-                    vec[i][c] = tuple[c];
-                ++i;
+                    vec[i][c] = tuples[i][c];
             }
         }
 
@@ -125,9 +126,9 @@ void BaseVTKLoader::loadDataArrayByName(vtkFieldData* fieldData, const std::stri
 
     const int numComponents = array->GetNumberOfComponents();
 
-    // Explicitly supported value types. Each maps to a fixed-size C++ type that SOFA's
-    // type system reliably handles. long and unsigned long are included and remapped via
-    // CanonicalLong_t to int/long long based on their size on the current platform.
+    // Explicitly supported value types. Each maps to a fixed-size C++ type through vtkArrayDispatch
+    // long and unsigned long are included and remapped via CanonicalLong_t to int/long long based 
+    // on their size on the current platform.
     using SupportedTypes = vtkTypeList::Create<
         float, double,
         signed char, unsigned char,

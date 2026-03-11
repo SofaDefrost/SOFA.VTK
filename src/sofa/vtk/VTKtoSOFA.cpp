@@ -99,7 +99,7 @@ void extractCells(sofa::core::loader::MeshLoader& loader, vtkSmartPointer<vtkDat
 {
     auto dataMap = makeCellDataMap(loader);
 
-    vtkSmartPointer<vtkCellTypes> types = vtkSmartPointer<vtkCellTypes>::New();
+    vtkSmartPointer <vtkCellTypes> types = vtkSmartPointer <vtkCellTypes>::New();
     dataSet->GetCellTypes(types);
     const vtkIdType nbElementTypes = types->GetNumberOfTypes();
     for (vtkIdType i = 0; i < nbElementTypes; ++i)

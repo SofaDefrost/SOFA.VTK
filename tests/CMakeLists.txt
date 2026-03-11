@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(SOFAVTK_test VERSION 1.0)
-
 find_package(Sofa.Testing REQUIRED)
-# BaseVTKLoader.h exposes vtkDataSet/vtkSmartPointer in its public interface,
-# so the test needs VTK headers even though it does not use VTK directly.
 find_package(VTK COMPONENTS CommonCore CommonDataModel REQUIRED)
 
 set(SOURCE_FILES

@@ -4,9 +4,6 @@
 #include <vtkDataSet.h>
 #include <vtkFieldData.h>
 #include <vtkSmartPointer.h>
-#include <cstdint>
-#include <memory>
-#include <map>
 
 namespace sofavtk
 {
