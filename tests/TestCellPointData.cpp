@@ -5,6 +5,8 @@
 #include <sofa/type/Vec.h>
 #include <sofa/type/vector.h>
 
+#include <sofa/config.h>
+
 #include <filesystem>
 #include <string>
 
@@ -85,18 +87,18 @@ protected:
 TEST_F(CellPointDataTest, CellData_ScalarFloat)
 {
     auto* loader = makeLoader({"pressure"});
-    const auto* v = getVec<float>(loader, "pressure");
+    const auto* v = getVec<SReal>(loader, "pressure");
     ASSERT_NE(v, nullptr);
     ASSERT_EQ(v->size(), 10u);
     // Zone A: centroid z = 0.0
-    EXPECT_FLOAT_EQ((*v)[0], 0.0f);
-    EXPECT_FLOAT_EQ((*v)[3], 0.0f);
+    EXPECT_NEAR((*v)[0], 0.0, 1e-6);
+    EXPECT_NEAR((*v)[3], 0.0, 1e-6);
     // Zone B: centroid z = 1.5
-    EXPECT_FLOAT_EQ((*v)[4], 1.5f);
-    EXPECT_FLOAT_EQ((*v)[5], 1.5f);
+    EXPECT_NEAR((*v)[4], 1.5, 1e-6);
+    EXPECT_NEAR((*v)[5], 1.5, 1e-6);
     // Zone C: centroid z = 2.25
-    EXPECT_FLOAT_EQ((*v)[6], 2.25f);
-    EXPECT_FLOAT_EQ((*v)[9], 2.25f);
+    EXPECT_NEAR((*v)[6], 2.25, 1e-6);
+    EXPECT_NEAR((*v)[9], 2.25, 1e-6);
 }
 
 // material_id = zone id: 1=surface, 2=hexa, 3=tet
@@ -115,33 +117,33 @@ TEST_F(CellPointDataTest, CellData_ScalarInt)
 // fiber_direction = normalised centroid vector
 TEST_F(CellPointDataTest, CellData_Vec3Double)
 {
-    using Vec3d = sofa::type::Vec<3, double>;
+    using Vec3r = sofa::type::Vec<3, SReal>;
     auto* loader = makeLoader({"fiber_direction"});
-    const auto* v = getVec<Vec3d>(loader, "fiber_direction");
+    const auto* v = getVec<Vec3r>(loader, "fiber_direction");
     ASSERT_NE(v, nullptr);
     ASSERT_EQ(v->size(), 10u);
 
     // Every entry must be a unit vector
     for (std::size_t i = 0; i < v->size(); ++i)
     {
-        const double mag = (*v)[i].norm();
-        EXPECT_NEAR(mag, 1.0, 1e-9) << "cell " << i << " fiber_direction is not unit";
+        const SReal mag = (*v)[i].norm();
+        EXPECT_NEAR(mag, 1.0, 1e-6) << "cell " << i << " fiber_direction is not unit";
     }
 
     // Cell 0 centroid = (0.5, 0.5, 0) → normalised (1/√2, 1/√2, 0)
-    const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
-    EXPECT_NEAR((*v)[0][0], inv_sqrt2, 1e-9);
-    EXPECT_NEAR((*v)[0][1], inv_sqrt2, 1e-9);
-    EXPECT_NEAR((*v)[0][2], 0.0,       1e-9);
+    const SReal inv_sqrt2 = SReal(1) / std::sqrt(SReal(2));
+    EXPECT_NEAR((*v)[0][0], inv_sqrt2, 1e-6);
+    EXPECT_NEAR((*v)[0][1], inv_sqrt2, 1e-6);
+    EXPECT_NEAR((*v)[0][2], 0.0,       1e-6);
 
     // Zone C tets: centroid z >> x,y so z-component dominates
-    EXPECT_GT((*v)[6][2], 0.9);
+    EXPECT_GT((*v)[6][2], SReal(0.9));
 }
 
 TEST_F(CellPointDataTest, CellData_Int8)
 {
     auto* loader = makeLoader({"int8_data"});
-    const auto* v = getVec<signed char>(loader, "int8_data");
+    const auto* v = getVec<int>(loader, "int8_data");
     ASSERT_NE(v, nullptr);
     ASSERT_EQ(v->size(), 10u);
     // int8_data = cell index + 1
@@ -175,39 +177,39 @@ TEST_F(CellPointDataTest, CellData_Int64)
 TEST_F(CellPointDataTest, PointData_ScalarDouble)
 {
     auto* loader = makeLoader({}, {"temperature"});
-    const auto* v = getVec<double>(loader, "temperature");
+    const auto* v = getVec<SReal>(loader, "temperature");
     ASSERT_NE(v, nullptr);
     ASSERT_EQ(v->size(), 22u);
-    EXPECT_DOUBLE_EQ((*v)[0],  0.0);   // P0  (0,0,0)
-    EXPECT_DOUBLE_EQ((*v)[1],  1.0);   // P1  (1,0,0)
-    EXPECT_DOUBLE_EQ((*v)[5],  3.0);   // P5  (2,1,0)
-    EXPECT_DOUBLE_EQ((*v)[19], 5.0);   // P19 (2,1,2)
-    EXPECT_DOUBLE_EQ((*v)[21], 4.0);   // P21 (0.5,0.5,3)
+    EXPECT_NEAR((*v)[0],  0.0, 1e-6);   // P0  (0,0,0)
+    EXPECT_NEAR((*v)[1],  1.0, 1e-6);   // P1  (1,0,0)
+    EXPECT_NEAR((*v)[5],  3.0, 1e-6);   // P5  (2,1,0)
+    EXPECT_NEAR((*v)[19], 5.0, 1e-6);   // P19 (2,1,2)
+    EXPECT_NEAR((*v)[21], 4.0, 1e-6);   // P21 (0.5,0.5,3)
 }
 
 // velocity = (x, y, z) per point — direction and magnitude encode position
 TEST_F(CellPointDataTest, PointData_Vec3Double)
 {
-    using Vec3d = sofa::type::Vec<3, double>;
+    using Vec3r = sofa::type::Vec<3, SReal>;
     auto* loader = makeLoader({}, {"velocity"});
-    const auto* v = getVec<Vec3d>(loader, "velocity");
+    const auto* v = getVec<Vec3r>(loader, "velocity");
     ASSERT_NE(v, nullptr);
     ASSERT_EQ(v->size(), 22u);
 
     // P0 (0,0,0) → zero velocity
-    EXPECT_DOUBLE_EQ((*v)[0][0], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[0][1], 0.0);
-    EXPECT_DOUBLE_EQ((*v)[0][2], 0.0);
+    EXPECT_NEAR((*v)[0][0], 0.0, 1e-6);
+    EXPECT_NEAR((*v)[0][1], 0.0, 1e-6);
+    EXPECT_NEAR((*v)[0][2], 0.0, 1e-6);
 
     // P5 (2,1,0) → velocity = coordinates
-    EXPECT_DOUBLE_EQ((*v)[5][0], 2.0);
-    EXPECT_DOUBLE_EQ((*v)[5][1], 1.0);
-    EXPECT_DOUBLE_EQ((*v)[5][2], 0.0);
+    EXPECT_NEAR((*v)[5][0], 2.0, 1e-6);
+    EXPECT_NEAR((*v)[5][1], 1.0, 1e-6);
+    EXPECT_NEAR((*v)[5][2], 0.0, 1e-6);
 
     // P21 (0.5,0.5,3) → velocity = coordinates
-    EXPECT_DOUBLE_EQ((*v)[21][0], 0.5);
-    EXPECT_DOUBLE_EQ((*v)[21][1], 0.5);
-    EXPECT_DOUBLE_EQ((*v)[21][2], 3.0);
+    EXPECT_NEAR((*v)[21][0], 0.5, 1e-6);
+    EXPECT_NEAR((*v)[21][1], 0.5, 1e-6);
+    EXPECT_NEAR((*v)[21][2], 3.0, 1e-6);
 }
 
 TEST_F(CellPointDataTest, MissingArrayName)
@@ -226,7 +228,7 @@ TEST_F(CellPointDataTest, MultipleArraysAtOnce)
 {
     auto* loader = makeLoader({"pressure", "material_id"}, {"temperature"});
 
-    const auto* pressure = getVec<float>(loader, "pressure");
+    const auto* pressure = getVec<SReal>(loader, "pressure");
     ASSERT_NE(pressure, nullptr);
     EXPECT_EQ(pressure->size(), 10u);
 
@@ -234,7 +236,7 @@ TEST_F(CellPointDataTest, MultipleArraysAtOnce)
     ASSERT_NE(matId, nullptr);
     EXPECT_EQ(matId->size(), 10u);
 
-    const auto* temp = getVec<double>(loader, "temperature");
+    const auto* temp = getVec<SReal>(loader, "temperature");
     ASSERT_NE(temp, nullptr);
     EXPECT_EQ(temp->size(), 22u);
 }
@@ -242,7 +244,7 @@ TEST_F(CellPointDataTest, MultipleArraysAtOnce)
 TEST_F(CellPointDataTest, Reload)
 {
     auto* loader = makeLoader({"pressure"});
-    ASSERT_NE(getVec<float>(loader, "pressure"), nullptr);
+    ASSERT_NE(getVec<SReal>(loader, "pressure"), nullptr);
     EXPECT_EQ(loader->findData("material_id"), nullptr);
 
     loader->d_cellDataNames.setValue({"material_id"});

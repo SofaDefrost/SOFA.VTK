@@ -1,4 +1,5 @@
 #include <sofa/vtk/BaseVTKLoader.h>
+#include <sofa/config.h>
 #include <sofa/vtk/VTKtoSOFA.h>
 #include <vtkArrayDispatch.h>
 #include <vtkCellData.h>
@@ -20,13 +21,23 @@ vtkSmartPointer<vtkDataSet> getDataSet(const std::string& fileName)
     return reader->GetOutput();
 }
 
-// Remap long and unsigned long which are platform dependent to a canonical fixed-width type
-template<typename T> struct CanonicalLong      { using type = T;};
-template<> struct CanonicalLong<long>          { using type = std::conditional_t<sizeof(long) == 4, int, long long>;};
-template<> struct CanonicalLong<unsigned long> { using type = std::conditional_t<sizeof(unsigned long) == 4, unsigned int, unsigned long long>; };
+// Map VTK array value types to SOFA-registered Data types.
+// float/double → SReal; small signed integers → int; unsigned integers → sofa::Index;
+// long long / unsigned long long are kept as-is (both registered).
+// long/unsigned long are platform-dependent and folded into the appropriate fixed-width type.
+template<typename T> struct SofaType                { using type = T; };
+template<> struct SofaType<float>                   { using type = SReal; };
+template<> struct SofaType<double>                  { using type = SReal; };
+template<> struct SofaType<signed char>             { using type = int; };
+template<> struct SofaType<short>                   { using type = int; };
+template<> struct SofaType<unsigned char>           { using type = sofa::Index; };
+template<> struct SofaType<unsigned short>          { using type = sofa::Index; };
+template<> struct SofaType<unsigned int>            { using type = sofa::Index; };
+template<> struct SofaType<long>                    { using type = std::conditional_t<sizeof(long) == 4, int, long long>; };
+template<> struct SofaType<unsigned long>           { using type = std::conditional_t<sizeof(unsigned long) == 4, sofa::Index, unsigned long long>; };
 
 template<typename T>
-using CanonicalLong_t = typename CanonicalLong<T>::type;
+using SofaType_t = typename SofaType<T>::type;
 
 struct ScalarDataWorker
 {
@@ -37,7 +48,7 @@ struct ScalarDataWorker
     template<typename ArrayT>
     void operator()(ArrayT* array)
     {
-        using T = CanonicalLong_t<vtk::GetAPIType<ArrayT>>;
+        using T = SofaType_t<vtk::GetAPIType<ArrayT>>;
 
         auto dataPtr = std::make_unique<sofa::core::objectmodel::Data<sofa::type::vector<T>>>();
         dataPtr->setName(arrayName);
@@ -68,7 +79,7 @@ struct MultiComponentDataWorker
     template<typename ArrayT>
     void operator()(ArrayT* array)
     {
-        using T = CanonicalLong_t<vtk::GetAPIType<ArrayT>>;
+        using T = SofaType_t<vtk::GetAPIType<ArrayT>>;
         dispatchN<T, 2>(array);
     }
 
