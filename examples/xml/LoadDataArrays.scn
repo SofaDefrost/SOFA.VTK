@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Verification scene for unit tests (tests/fixtures/test_mesh.vtu).
+
+  Geometry: 22 points, 10 cells in three spatial zones
+    Zone A  z=0      cells 0-1 (quads) + 2-3 (triangles)
+    Zone B  z=1..2   cells 4-5 (hexahedra)
+    Zone C  z=2..3   cells 6-9 (tetrahedra)
+
+  Cell data loaded:
+    pressure        float32   centroid z     [0.0, 0.0, 0.0, 0.0, 1.5, 1.5, 2.25, ...]
+    material_id     int32     zone id        [1, 1, 1, 1, 2, 2, 3, 3, 3, 3]
+    fiber_direction float64   unit centroid vector (3 components)
+    int8_data       int8      cell index     [1 .. 10]
+    int32_data      int32     index * 100    [100 .. 1000]
+    int64_data      int64     index * 10000  [10000 .. 100000]
+
+  Point data loaded:
+    temperature     float64   x + y + z      P0=0.0, P1=1.0, P5=3.0, P19=5.0, P21=4.0
+    velocity        float64   (x, y, z)      P0=(0,0,0), P5=(2,1,0), P21=(0.5,0.5,3)
+-->
+<Node name="root" dt="0.005" gravity="0 0 -9.81">
+
+    <Node name="plugins">
+        <RequiredPlugin name="SOFA.VTK"/>
+        <RequiredPlugin name="Sofa.GL.Component.Rendering3D"/> 
+    </Node>
+
+    <DefaultAnimationLoop/>
+
+    <UnstructuredGridVTKLoader name="loader"
+        filename="../../tests/fixtures/test_mesh.vtu"
+        printLog="true"
+        createSubelements="true"
+        cellDataNames="pressure material_id fiber_direction int8_data int32_data int64_data"
+        pointDataNames="temperature velocity"/>
+
+    <OglModel name="visual" src="@loader" color="0.6 0.8 1.0 0.85"/>
+
+</Node>
