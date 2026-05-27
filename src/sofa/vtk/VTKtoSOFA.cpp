@@ -60,7 +60,7 @@ std::unordered_map<VTKCellType, std::unique_ptr<BaseCellData>> makeCellDataMap(s
 
     registerInMap<VTK_TETRA>(dataMap, &loader.d_tetrahedra);
     registerInMap<VTK_HEXAHEDRON>(dataMap, &loader.d_hexahedra);
-    registerInMap<VTK_WEDGE>(dataMap, &loader.d_pentahedra);
+    registerInMap<VTK_WEDGE>(dataMap, &loader.d_prisms);
     registerInMap<VTK_PYRAMID>(dataMap, &loader.d_pyramids);
 
     return dataMap;
